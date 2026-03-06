@@ -944,8 +944,8 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
 // ══════════════════════════════
 const MODEL_URL          = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/';
 const MATCH_THRESHOLD    = 0.5;   // FaceMatcher距離閾値（小さいほど厳しい）
-const FACE_CONF_THRESHOLD= 0.70;  // 顔認証 信頼度70%以上で打刻
-const SCAN_COOLDOWN_MS   = 60000; // 同一人物の再打刻クールダウン
+const FACE_CONF_THRESHOLD= 0.65;  // 顔認証 信頼度70%以上で打刻
+const SCAN_COOLDOWN_MS   = 6000; // 同一人物の再打刻クールダウン
 const QR_COOLDOWN_MS     = 6000;  // QR再スキャン無視時間
 const ADMIN_PW           = '0000';
 
