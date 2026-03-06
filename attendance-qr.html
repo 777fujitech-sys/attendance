@@ -1,0 +1,1719 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATTEND·OS – QR勤怠システム</title>
+
+<style>
+:root {
+  --bg: #060a12;
+  --surface: #0d1424;
+  --surface2: #131d30;
+  --border: #1a3050;
+  --border2: #0f2040;
+  --accent: #00e5ff;
+  --accent2: #0099bb;
+  --green: #00ff9d;
+  --red: #ff3355;
+  --orange: #ff8800;
+  --yellow: #ffe500;
+  --purple: #b060ff;
+  --text: #d0e8ff;
+  --muted: #4a6a88;
+  --mono: 'Courier New', monospace;
+  --display: 'Arial Black', sans-serif;
+  --body: 'Hiragino Sans','Yu Gothic','Meiryo',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--body);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,229,255,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 90% 80%, rgba(0,255,157,0.04) 0%, transparent 50%);
+  pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,229,255,0.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,229,255,0.025) 1px,transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;z-index:0;
+}
+
+/* ── Header ── */
+header{
+  position:sticky;top:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 28px;
+  background:rgba(6,10,18,0.92);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(16px);
+}
+.logo{display:flex;align-items:center;gap:14px;}
+.logo-mark{font-family:var(--display);font-size:13px;font-weight:900;color:var(--accent);letter-spacing:0.15em;}
+.logo-sub{font-size:10px;color:var(--muted);letter-spacing:0.08em;margin-top:2px;}
+.header-clock{font-family:var(--display);font-size:20px;color:var(--accent);letter-spacing:0.12em;text-align:right;}
+.header-date{font-size:10px;color:var(--muted);letter-spacing:0.06em;margin-top:3px;}
+
+/* ── Tabs ── */
+.tabs{
+  display:flex;background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:0 24px;position:relative;z-index:1;
+}
+.tab{
+  padding:13px 22px;font-size:12px;font-weight:500;
+  color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;
+  transition:all .2s;letter-spacing:0.06em;
+  display:flex;align-items:center;gap:8px;
+}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* ── Main ── */
+.main{padding:24px;max-width:1280px;margin:0 auto;position:relative;z-index:1;}
+.page{display:none;}
+.page.active{display:block;}
+
+/* ══ AUTH MODE SELECTOR ══ */
+.auth-mode-bar{
+  display:flex;gap:12px;margin-bottom:20px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:10px;
+}
+.auth-mode-btn{
+  flex:1;padding:14px;border-radius:12px;border:2px solid transparent;
+  cursor:pointer;font-family:var(--body);font-size:13px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:all .2s;background:transparent;color:var(--muted);
+}
+.auth-mode-btn:hover{color:var(--text);}
+.auth-mode-btn.active-face{
+  border-color:var(--accent);color:var(--accent);
+  background:rgba(0,229,255,0.07);
+}
+.auth-mode-btn.active-qr{
+  border-color:var(--purple);color:var(--purple);
+  background:rgba(176,96,255,0.07);
+}
+.auth-mode-icon{font-size:22px;}
+
+/* ══ ACTION BUTTONS ══ */
+.step-label{
+  font-size:13px;font-weight:700;letter-spacing:.1em;
+  color:var(--muted);text-transform:uppercase;
+  margin-bottom:20px;text-align:center;
+}
+.action-btn-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:16px;
+  margin-bottom:4px;
+}
+.action-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;padding:36px 16px;
+  border-radius:20px;border:2px solid transparent;
+  cursor:pointer;font-family:var(--body);
+  transition:all .2s cubic-bezier(.34,1.4,.64,1);
+  background:var(--surface);position:relative;overflow:hidden;
+}
+.action-btn:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.4);}
+.action-btn:active{transform:translateY(-1px);}
+.action-icon{font-size:52px;line-height:1;display:block;}
+.action-name{font-size:18px;font-weight:700;letter-spacing:.06em;}
+.action-in  {border-color:rgba(0,255,157,.3);}
+.action-in:hover{border-color:var(--green);box-shadow:0 12px 40px rgba(0,255,157,.15);}
+.action-in .action-name{color:var(--green);}
+.action-go  {border-color:rgba(255,136,0,.3);}
+.action-go:hover{border-color:var(--orange);box-shadow:0 12px 40px rgba(255,136,0,.15);}
+.action-go .action-name{color:var(--orange);}
+.action-back{border-color:rgba(255,229,0,.3);}
+.action-back:hover{border-color:var(--yellow);box-shadow:0 12px 40px rgba(255,229,0,.15);}
+.action-back .action-name{color:var(--yellow);}
+.action-out {border-color:rgba(255,51,85,.3);}
+.action-out:hover{border-color:var(--red);box-shadow:0 12px 40px rgba(255,51,85,.15);}
+.action-out .action-name{color:var(--red);}
+
+/* モードバー */
+.mode-bar{
+  padding:10px 20px;font-size:13px;font-weight:700;
+  letter-spacing:.08em;text-align:center;
+}
+.mode-bar.mb-in  {background:rgba(0,255,157,.12);color:var(--green);  border-bottom:1px solid rgba(0,255,157,.2);}
+.mode-bar.mb-go  {background:rgba(255,136,0,.12); color:var(--orange); border-bottom:1px solid rgba(255,136,0,.2);}
+.mode-bar.mb-back{background:rgba(255,229,0,.12); color:var(--yellow); border-bottom:1px solid rgba(255,229,0,.2);}
+.mode-bar.mb-out {background:rgba(255,51,85,.12);  color:var(--red);    border-bottom:1px solid rgba(255,51,85,.2);}
+
+.cancel-btn{
+  margin-left:auto;
+  background:transparent;border:1px solid var(--border);
+  border-radius:8px;color:var(--muted);padding:5px 12px;
+  font-size:12px;cursor:pointer;font-family:var(--body);
+  transition:all .2s;
+}
+.cancel-btn:hover{border-color:var(--red);color:var(--red);}
+
+/* ══ SCAN LAYOUT ══ */
+.scan-layout{
+  display:grid;
+  grid-template-columns:1fr 400px;
+  gap:20px;align-items:start;
+}
+
+/* カメラパネル */
+.cam-panel{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:20px;overflow:hidden;
+}
+.cam-header{
+  padding:14px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.live-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--green);box-shadow:0 0 10px var(--green);
+  animation:blink 1.8s infinite;flex-shrink:0;
+}
+.live-dot.off{background:var(--muted);box-shadow:none;animation:none;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.cam-status-txt{font-size:12px;color:var(--muted);letter-spacing:.06em;flex:1;}
+
+.cam-wrap{
+  position:relative;width:100%;aspect-ratio:4/3;
+  background:#000;overflow:hidden;
+}
+#faceVideo,#qrVideo{width:100%;height:100%;object-fit:cover;display:block;}
+#faceCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+#qrScanCanvas{display:none;}
+
+/* 顔認証 枠 */
+.face-frame{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:200px;height:240px;
+  pointer-events:none;transition:opacity .3s;
+}
+.face-frame.detected{opacity:0;}
+.ff-corner{position:absolute;width:28px;height:28px;border-color:var(--accent);border-style:solid;}
+.ff-tl{top:0;left:0; border-width:2px 0 0 2px;border-radius:4px 0 0 0;}
+.ff-tr{top:0;right:0;border-width:2px 2px 0 0;border-radius:0 4px 0 0;}
+.ff-bl{bottom:0;left:0; border-width:0 0 2px 2px;border-radius:0 0 0 4px;}
+.ff-br{bottom:0;right:0;border-width:0 2px 2px 0;border-radius:0 0 4px 0;}
+.ff-pulse{
+  position:absolute;inset:0;border-radius:50%;
+  border:1px solid rgba(0,229,255,.2);
+  animation:ffpulse 2s infinite;
+}
+@keyframes ffpulse{0%{transform:scale(.9);opacity:.6}100%{transform:scale(1.08);opacity:0}}
+
+/* QR枠 */
+.qr-frame{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:220px;height:220px;
+  pointer-events:none;
+}
+.qf-corner{position:absolute;width:32px;height:32px;border-color:var(--purple);border-style:solid;}
+.qf-tl{top:0;left:0;  border-width:3px 0 0 3px;border-radius:4px 0 0 0;}
+.qf-tr{top:0;right:0; border-width:3px 3px 0 0;border-radius:0 4px 0 0;}
+.qf-bl{bottom:0;left:0;  border-width:0 0 3px 3px;border-radius:0 0 0 4px;}
+.qf-br{bottom:0;right:0; border-width:0 3px 3px 0;border-radius:0 0 4px 0;}
+.qr-scan-line{
+  position:absolute;left:8px;right:8px;height:2px;
+  background:linear-gradient(90deg,transparent,var(--purple),transparent);
+  animation:qrscanline 2s linear infinite;
+  box-shadow:0 0 8px var(--purple);
+}
+@keyframes qrscanline{0%{top:8px}100%{top:212px}}
+
+.scan-progress{
+  padding:10px 20px;border-top:1px solid var(--border);
+  font-size:11px;color:var(--muted);
+  display:flex;align-items:center;gap:10px;
+}
+.prog-bar-wrap{flex:1;height:3px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.prog-bar{height:100%;background:var(--accent);width:0%;transition:width .1s;border-radius:2px;}
+.prog-bar.qr-prog{background:var(--purple);}
+
+/* ── 右カラム ── */
+.right-col{display:flex;flex-direction:column;gap:16px;}
+
+/* 結果カード */
+.result-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:18px;padding:22px;
+  text-align:center;min-height:200px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  transition:border-color .4s,box-shadow .4s;
+  position:relative;overflow:hidden;
+}
+.result-card.c-in  {border-color:var(--green); box-shadow:0 0 30px rgba(0,255,157,.1);}
+.result-card.c-out {border-color:var(--red);   box-shadow:0 0 30px rgba(255,51,85,.1);}
+.result-card.c-go  {border-color:var(--orange);box-shadow:0 0 30px rgba(255,136,0,.1);}
+.result-card.c-back{border-color:var(--yellow);box-shadow:0 0 30px rgba(255,229,0,.1);}
+.result-card.c-err {border-color:var(--red);}
+.result-face-wrap{
+  width:80px;height:80px;border-radius:50%;overflow:hidden;
+  border:2px solid var(--border);background:var(--surface2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:36px;flex-shrink:0;
+}
+.result-face-wrap img{width:100%;height:100%;object-fit:cover;}
+.result-name{font-size:20px;font-weight:700;}
+.result-dept{font-size:12px;color:var(--muted);}
+.result-badge{
+  font-size:12px;padding:4px 16px;border-radius:20px;
+  font-weight:700;letter-spacing:.08em;font-family:var(--body);
+}
+.b-in  {background:rgba(0,255,157,.15);color:var(--green);}
+.b-out {background:rgba(255,51,85,.15); color:var(--red);}
+.b-go  {background:rgba(255,136,0,.15); color:var(--orange);}
+.b-back{background:rgba(255,229,0,.15); color:var(--yellow);}
+.result-time{font-family:var(--mono);font-size:12px;color:var(--muted);}
+.result-conf{font-size:11px;color:var(--muted);}
+.result-method{
+  font-size:10px;padding:3px 10px;border-radius:10px;
+  font-weight:700;letter-spacing:.06em;
+}
+.method-face{background:rgba(0,229,255,.12);color:var(--accent);}
+.method-qr  {background:rgba(176,96,255,.12);color:var(--purple);}
+
+/* 統計 */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.stat-box{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:14px;text-align:center;
+}
+.stat-num{font-family:var(--display);font-size:24px;color:var(--accent);}
+.stat-lbl{font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:.05em;}
+
+/* ログ */
+.log-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.log-title{
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  font-size:10px;font-weight:700;letter-spacing:.12em;
+  color:var(--muted);text-transform:uppercase;
+}
+.log-list{max-height:260px;overflow-y:auto;}
+.log-list::-webkit-scrollbar{width:3px;}
+.log-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.log-item{
+  display:flex;align-items:center;padding:9px 16px;
+  border-bottom:1px solid rgba(26,48,80,.5);gap:10px;
+  animation:fadeSlide .3s ease;
+}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.log-avatar{
+  width:30px;height:30px;border-radius:50%;overflow:hidden;
+  background:var(--surface2);display:flex;align-items:center;justify-content:center;
+  font-size:13px;flex-shrink:0;border:1px solid var(--border);
+}
+.log-avatar img{width:100%;height:100%;object-fit:cover;}
+.log-info{flex:1;min-width:0;}
+.log-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.log-dept{font-size:10px;color:var(--muted);}
+.log-time{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;}
+.log-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;}
+.lb-in  {background:rgba(0,255,157,.1);color:var(--green);}
+.lb-out {background:rgba(255,51,85,.1); color:var(--red);}
+.lb-go  {background:rgba(255,136,0,.1); color:var(--orange);}
+.lb-back{background:rgba(255,229,0,.1); color:var(--yellow);}
+.log-empty{padding:28px;text-align:center;color:var(--muted);font-size:12px;}
+.log-method-dot{
+  width:6px;height:6px;border-radius:50%;flex-shrink:0;
+}
+.lmd-face{background:var(--accent);}
+.lmd-qr  {background:var(--purple);}
+
+/* ══ EMPLOYEES PAGE ══ */
+.emp-add-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:18px;padding:24px;margin-bottom:20px;
+}
+.emp-add-title{
+  font-size:11px;font-weight:700;letter-spacing:.12em;
+  color:var(--muted);text-transform:uppercase;margin-bottom:16px;
+}
+.emp-add-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-group label{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;}
+.form-input{
+  background:var(--bg);border:1px solid var(--border);border-radius:10px;
+  color:var(--text);padding:9px 12px;font-size:13px;outline:none;
+  font-family:var(--body);transition:border-color .2s;
+}
+.form-input:focus{border-color:var(--accent);}
+.form-input option{background:var(--surface);}
+
+/* 顔写真登録エリア */
+.face-reg-area{
+  border:1px dashed var(--border);border-radius:12px;
+  padding:16px;display:flex;align-items:center;gap:16px;
+  margin-bottom:14px;background:var(--bg);
+}
+.face-preview{
+  width:72px;height:72px;border-radius:12px;overflow:hidden;
+  background:var(--surface2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;flex-shrink:0;
+}
+.face-preview img{width:100%;height:100%;object-fit:cover;display:none;}
+.face-reg-right{flex:1;}
+.face-reg-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.face-hint{font-size:11px;color:var(--muted);line-height:1.6;}
+
+.btn{
+  padding:9px 16px;border-radius:10px;border:none;
+  font-family:var(--body);font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .2s;letter-spacing:.02em;white-space:nowrap;
+}
+.btn-primary{background:var(--accent);color:#000;}
+.btn-primary:hover{background:#33eeff;transform:translateY(-1px);}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+.btn-secondary:hover{border-color:var(--accent);}
+.btn-danger{background:rgba(255,51,85,.12);color:var(--red);border:1px solid rgba(255,51,85,.3);}
+.btn-danger:hover{background:rgba(255,51,85,.25);}
+.btn-sm{padding:6px 12px;font-size:11px;}
+.btn-capture{background:rgba(0,229,255,.1);color:var(--accent);border:1px solid rgba(0,229,255,.3);}
+.btn-capture:hover{background:rgba(0,229,255,.2);}
+
+/* 社員グリッド */
+.emp-section-title{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:14px;}
+.emp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
+.emp-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:18px;
+  display:flex;flex-direction:column;gap:10px;
+  transition:border-color .2s,transform .2s;
+}
+.emp-card:hover{border-color:var(--accent2);transform:translateY(-2px);}
+.emp-avatar-wrap{
+  width:64px;height:64px;border-radius:14px;overflow:hidden;
+  background:var(--surface2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:26px;
+  margin:0 auto;
+}
+.emp-avatar-wrap img{width:100%;height:100%;object-fit:cover;}
+.emp-name-txt{font-size:14px;font-weight:700;text-align:center;}
+.emp-id-txt{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;}
+.emp-dept-txt{font-size:11px;color:var(--muted);text-align:center;}
+.face-status{
+  text-align:center;font-size:10px;padding:3px 10px;
+  border-radius:10px;margin:0 auto;display:inline-block;
+}
+.face-status.ok{background:rgba(0,255,157,.1);color:var(--green);}
+.face-status.ng{background:rgba(255,51,85,.1);color:var(--red);}
+.emp-btn-row{display:flex;gap:6px;}
+.emp-qr-btn{
+  flex:1;padding:7px;background:rgba(176,96,255,.1);
+  border:1px solid rgba(176,96,255,.3);border-radius:8px;
+  color:var(--purple);font-size:11px;cursor:pointer;
+  transition:all .2s;font-family:var(--body);font-weight:600;
+}
+.emp-qr-btn:hover{background:rgba(176,96,255,.2);}
+
+/* ══ RECORDS PAGE ══ */
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap;}
+.toolbar input,.toolbar select{
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);padding:8px 12px;font-size:12px;outline:none;
+}
+.toolbar input:focus,.toolbar select:focus{border-color:var(--accent);}
+.toolbar select option{background:var(--surface);}
+.spacer{flex:1;}
+.table-wrap{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;overflow:hidden;
+}
+table{width:100%;border-collapse:collapse;}
+thead th{
+  padding:11px 14px;text-align:left;font-size:10px;font-weight:700;
+  letter-spacing:.1em;color:var(--muted);text-transform:uppercase;
+  border-bottom:1px solid var(--border);background:var(--surface2);
+  cursor:pointer;user-select:none;
+}
+thead th:hover{color:var(--text);}
+thead th.sort-asc::after{content:' ▲';font-size:9px;}
+thead th.sort-desc::after{content:' ▼';font-size:9px;}
+tbody tr{border-bottom:1px solid rgba(26,48,80,.4);transition:background .15s;}
+tbody tr:hover{background:var(--surface2);}
+tbody td{padding:10px 14px;font-size:13px;}
+td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
+.tbl-badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;}
+.tb-in  {background:rgba(0,255,157,.1);color:var(--green);}
+.tb-out {background:rgba(255,51,85,.1); color:var(--red);}
+.tb-go  {background:rgba(255,136,0,.1); color:var(--orange);}
+.tb-back{background:rgba(255,229,0,.1); color:var(--yellow);}
+.tbl-method{display:inline-block;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;}
+.tm-face{background:rgba(0,229,255,.1);color:var(--accent);}
+.tm-qr  {background:rgba(176,96,255,.1);color:var(--purple);}
+.tbl-avatar{width:28px;height:28px;border-radius:50%;overflow:hidden;
+  background:var(--surface2);display:inline-flex;align-items:center;justify-content:center;
+  font-size:11px;margin-right:8px;border:1px solid var(--border);vertical-align:middle;}
+.tbl-avatar img{width:100%;height:100%;object-fit:cover;}
+.table-empty{padding:40px;text-align:center;color:var(--muted);}
+
+
+/* ── Toast ── */
+#toast{
+  position:fixed;bottom:24px;right:24px;
+  background:var(--surface);border:1px solid var(--green);border-radius:12px;
+  padding:12px 18px;font-size:13px;color:var(--green);
+  box-shadow:0 4px 24px rgba(0,0,0,.4);
+  transform:translateY(80px);opacity:0;transition:all .3s;z-index:9999;
+}
+#toast.show{transform:none;opacity:1;}
+
+/* ── Modal（カメラ撮影 / QR表示） ── */
+.modal-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.8);backdrop-filter:blur(6px);
+  z-index:1000;align-items:center;justify-content:center;
+}
+.modal-overlay.open{display:flex;}
+.modal{
+  background:var(--surface);border:1px solid var(--border);border-radius:20px;
+  padding:24px;max-width:420px;width:95%;
+  animation:popIn .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:none}}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
+.modal-sub{font-size:11px;color:var(--muted);margin-bottom:16px;}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+.capture-video-wrap{
+  position:relative;width:100%;aspect-ratio:4/3;
+  background:#000;border-radius:12px;overflow:hidden;margin-bottom:12px;
+}
+#captureVideo{width:100%;height:100%;object-fit:cover;}
+#captureCanvas{display:none;}
+.capture-overlay{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  pointer-events:none;
+}
+.capture-ring{
+  width:160px;height:200px;border-radius:50%;
+  border:2px solid rgba(0,229,255,.6);
+}
+.captured-thumbs{
+  display:flex;gap:8px;flex-wrap:wrap;min-height:64px;
+  align-items:center;
+}
+.thumb-hint{font-size:11px;color:var(--muted);}
+.thumb{position:relative;width:60px;height:60px;}
+.thumb img{width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--border);}
+.thumb-del{
+  position:absolute;top:-4px;right:-4px;width:16px;height:16px;
+  border-radius:50%;background:var(--red);color:#fff;border:none;
+  font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+/* QR Modal */
+.qr-modal-content{text-align:center;}
+.qr-modal-content h3{font-size:17px;font-weight:700;margin-bottom:4px;}
+.qr-modal-content .sub{font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:16px;}
+#qrScanCanvas{border-radius:12px;background:#fff;padding:12px;}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+@media(max-width:800px){
+  .scan-layout{grid-template-columns:1fr;}
+  .emp-add-grid{grid-template-columns:1fr 1fr;}
+  .action-btn-grid{grid-template-columns:1fr 1fr;}
+  .auth-mode-bar{flex-direction:column;}
+}
+</style>
+</head>
+<body>
+
+<!-- ローディング -->
+
+
+<header>
+  <div class="logo">
+    <div>
+      <div class="logo-mark">ATTEND·OS</div>
+      <div class="logo-sub">QR勤怠システム</div>
+    </div>
+  </div>
+  <div>
+    <div class="header-clock" id="clock">--:--:--</div>
+    <div class="header-date" id="dateDisp"></div>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('scan')">🎯 打刻</div>
+  <div class="tab" onclick="switchTab('records')">📋 打刻記録</div>
+  <div class="tab" onclick="switchTab('employees')">👤 社員管理</div>
+</div>
+
+<div class="main">
+
+<!-- ── SCAN PAGE ── -->
+<div id="page-scan" class="page active">
+
+  <!-- Step 0: 認証方式選択（常時表示） -->
+  <div id="stepButtons">
+    <div class="step-label">打刻種別を選んでください</div>
+    <div class="action-btn-grid">
+      <button class="action-btn action-in"   onclick="selectMode('in')">
+        <span class="action-icon">✅</span><span class="action-name">出勤</span>
+      </button>
+      <button class="action-btn action-go"   onclick="selectMode('go')">
+        <span class="action-icon">🚶</span><span class="action-name">外出</span>
+      </button>
+      <button class="action-btn action-back" onclick="selectMode('back')">
+        <span class="action-icon">🏃</span><span class="action-name">戻り</span>
+      </button>
+      <button class="action-btn action-out"  onclick="selectMode('out')">
+        <span class="action-icon">👋</span><span class="action-name">退勤</span>
+      </button>
+    </div>
+    <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-top:20px">
+      <div class="stat-box"><div class="stat-num" id="statIn">0</div><div class="stat-lbl">本日 出勤（人）</div></div>
+      <div class="stat-box"><div class="stat-num" id="statOut">0</div><div class="stat-lbl">本日 退勤（人）</div></div>
+      <div class="stat-box"><div class="stat-num" id="statPresent">0</div><div class="stat-lbl">現在 在席</div></div>
+      <div class="stat-box"><div class="stat-num" id="statAway">0</div><div class="stat-lbl">現在 外出中</div></div>
+    </div>
+    <div class="log-panel" style="margin-top:16px">
+      <div class="log-title">直近の打刻</div>
+      <div class="log-list" id="logList"><div class="log-empty">まだ打刻がありません</div></div>
+    </div>
+  </div>
+
+  <!-- Step 2: スキャン画面（ボタン選択後に表示） -->
+  <div id="stepScan" style="display:none">
+    <div class="scan-layout">
+      <div>
+        <div class="cam-panel">
+          <div class="cam-header">
+            <div class="live-dot off" id="liveDot"></div>
+            <span class="cam-status-txt" id="camStatusTxt">カメラを起動中...</span>
+            <button class="cancel-btn" onclick="cancelMode()">✕ キャンセル</button>
+          </div>
+          <div id="modeBar" class="mode-bar"></div>
+          <div class="cam-wrap" id="camWrap">
+            <video id="qrVideo" autoplay muted playsinline style="display:none"></video>
+            <canvas id="qrScanCanvas" style="display:none"></canvas</video>
+            </canvas>
+            <div class="qr-frame" id="qrFrame" style="display:none">
+              <div class="qf-corner qf-tl"></div>
+              <div class="qf-corner qf-tr"></div>
+              <div class="qf-corner qf-bl"></div>
+              <div class="qf-corner qf-br"></div>
+              <div class="qr-scan-line"></div>
+            </div>
+          </div>
+          <div class="scan-progress">
+            <span id="progTxt" style="font-size:11px;color:var(--muted);white-space:nowrap;">準備中...</span>
+            <div class="prog-bar-wrap"><div class="prog-bar" id="progBar"></div></div>
+            <span id="progPct" style="font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap;">--</span>
+          </div>
+        </div>
+      </div>
+      <div class="right-col">
+        <div class="result-card" id="resultCard">
+          <div style="font-size:48px">📱</div>
+          <div style="color:var(--muted);font-size:13px;line-height:1.7">
+            QRコードをカメラに向けると<br>打刻されます
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-num" id="statIn2">0</div><div class="stat-lbl">本日 出勤（人）</div></div>
+          <div class="stat-box"><div class="stat-num" id="statOut2">0</div><div class="stat-lbl">本日 退勤（人）</div></div>
+          <div class="stat-box"><div class="stat-num" id="statPresent2">0</div><div class="stat-lbl">現在 在席</div></div>
+          <div class="stat-box"><div class="stat-num" id="statAway2">0</div><div class="stat-lbl">現在 外出中</div></div>
+        </div>
+        <div class="log-panel">
+          <div class="log-title">直近の打刻</div>
+          <div class="log-list" id="logList2"><div class="log-empty">まだ打刻がありません</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page-scan -->
+
+<!-- ── RECORDS PAGE ── -->
+<div id="page-records" class="page">
+  <div class="toolbar">
+    <input type="date" id="filterDate" onchange="renderRecords()" style="width:140px"/>
+    <button class="btn btn-secondary btn-sm" onclick="setTodayFilter();renderRecords();" style="padding:7px 12px;font-size:11px">📅 今日</button>
+    <input type="text" id="filterName" placeholder="社員名・ID検索" oninput="renderRecords()" style="width:160px"/>
+    <select id="filterType" onchange="renderRecords()">
+      <option value="">すべて</option>
+      <option value="in">出勤</option>
+      <option value="out">退勤</option>
+      <option value="go">外出</option>
+      <option value="back">戻り</option>
+    </select>
+    <select id="filterMethod" onchange="renderRecords()">
+      <option value="">全認証方式</option>
+      <option value="face">顔認証</option>
+      <option value="qr">QRコード</option>
+      <option value="manual">手動修正</option>
+    </select>
+    <div class="spacer"></div>
+    <button class="btn btn-danger" onclick="resetToday()">🔄 本日リセット</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">⬇ CSV</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th onclick="setSort('empId')"   id="th-empId">社員ID</th>
+          <th onclick="setSort('empName')" id="th-empName">氏名</th>
+          <th onclick="setSort('dept')"    id="th-dept">部署</th>
+          <th onclick="setSort('type')"    id="th-type">種別</th>
+          <th onclick="setSort('method')"  id="th-method">認証方式</th>
+          <th onclick="setSort('confidence')" id="th-confidence">信頼度</th>
+          <th onclick="setSort('date')"    id="th-date">日付</th>
+          <th onclick="setSort('time')"    id="th-time">時刻</th>
+          <th style="cursor:default;width:80px">操作</th>
+        </tr>
+      </thead>
+      <tbody id="recordsBody"><tr><td colspan="8" class="table-empty">データがありません</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── EMPLOYEES PAGE ── -->
+<div id="page-employees" class="page">
+  <div class="emp-add-card">
+    <div class="emp-add-title">＋ 社員を登録</div>
+    <div class="emp-add-grid">
+      <div class="form-group">
+        <label>社員ID</label>
+        <input class="form-input" id="newId" placeholder="EMP004"/>
+      </div>
+      <div class="form-group">
+        <label>氏名</label>
+        <input class="form-input" id="newName" placeholder="田中 次郎"/>
+      </div>
+      <div class="form-group">
+        <label>部署</label>
+        <select class="form-input" id="newDept">
+          <option>営業部</option><option>開発部</option><option>総務部</option>
+          <option>経理部</option><option>人事部</option><option>マーケティング部</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="addEmployee()" style="width:100%;padding:11px">＋ 社員を追加</button>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+    <div class="emp-section-title" style="margin-bottom:0">登録済み社員</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm" onclick="backupEmployees()">⬇ バックアップ</button>
+      <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+        ⬆ 復元
+        <input type="file" accept=".json" style="display:none" onchange="restoreEmployees(event)"/>
+      </label>
+    </div>
+  </div>
+  <div class="emp-grid" id="empGrid"></div>
+</div>
+
+</div><!-- /main -->
+
+<!-- QR表示Modal -->
+<div class="modal-overlay" id="qrModal">
+  <div class="modal" style="max-width:340px">
+    <div class="qr-modal-content">
+      <h3 id="qrModalName" style="margin-bottom:4px"></h3>
+      <div id="qrModalSub" style="font-size:11px;color:var(--muted);margin-bottom:16px;font-family:var(--mono)"></div>
+      <div id="qrDisplayArea" style="display:flex;align-items:center;justify-content:center;background:#fff;border-radius:12px;padding:16px;min-height:232px">
+        <canvas id="qrDisplayCanvas" width="200" height="200"></canvas>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn btn-primary" onclick="saveQR()" style="flex:1">⬇ 保存</button>
+        <button class="btn btn-secondary" onclick="closeQRModal()" style="flex:1">✕ 閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 打刻記録 編集Modal -->
+<div class="modal-overlay" id="editRecordModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-title">✏️ 打刻記録を修正</div>
+    <div class="modal-sub" style="color:var(--muted);font-size:11px;margin-bottom:18px">管理者パスワードが必要です。修正履歴は記録されます。</div>
+
+    <!-- パスワード入力エリア -->
+    <div id="editPwArea">
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.06em;display:block;margin-bottom:6px">管理者パスワード</label>
+        <input class="form-input" type="password" id="editPwInput" placeholder="パスワードを入力" style="width:100%"
+          onkeydown="if(event.key==='Enter')verifyEditPw()"/>
+      </div>
+      <div id="editPwError" style="font-size:11px;color:var(--red);margin-bottom:10px;display:none">パスワードが違います</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeEditModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="verifyEditPw()">🔓 認証</button>
+      </div>
+    </div>
+
+    <!-- 編集フォーム（認証後に表示） -->
+    <div id="editFormArea" style="display:none">
+      <input type="hidden" id="editRecordId"/>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div class="form-group">
+          <label style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;display:block;margin-bottom:5px">社員ID</label>
+          <input class="form-input" id="editEmpId" readonly style="opacity:.5;cursor:not-allowed"/>
+        </div>
+        <div class="form-group">
+          <label style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;display:block;margin-bottom:5px">氏名</label>
+          <input class="form-input" id="editEmpName" readonly style="opacity:.5;cursor:not-allowed"/>
+        </div>
+        <div class="form-group">
+          <label style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;display:block;margin-bottom:5px">種別</label>
+          <select class="form-input" id="editType">
+            <option value="in">出勤</option>
+            <option value="go">外出</option>
+            <option value="back">戻り</option>
+            <option value="out">退勤</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;display:block;margin-bottom:5px">日付</label>
+          <input class="form-input" type="date" id="editDate"/>
+        </div>
+        <div class="form-group">
+          <label style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;display:block;margin-bottom:5px">時刻</label>
+          <input class="form-input" type="time" id="editTime" step="1"/>
+        </div>
+        <div class="form-group">
+          <label style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;display:block;margin-bottom:5px">認証方式</label>
+          <select class="form-input" id="editMethod">
+            <option value="face">🤖 顔認証</option>
+            <option value="qr">📱 QRコード</option>
+            <option value="manual">✏️ 手動修正</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;display:block;margin-bottom:5px">修正理由（任意）</label>
+        <input class="form-input" id="editReason" placeholder="例：打刻ミスのため修正" style="width:100%"/>
+      </div>
+      <div style="background:rgba(255,229,0,.06);border:1px solid rgba(255,229,0,.2);border-radius:10px;padding:10px 14px;font-size:11px;color:var(--yellow);margin-bottom:16px">
+        ⚠️ この操作は打刻記録に「手動修正」として記録されます
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-danger btn-sm" onclick="deleteRecord()">🗑 削除</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-secondary" onclick="closeEditModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="saveEditRecord()">💾 保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// jsQR + qrcode.js を読み込み（face-api不要）
+(function(){
+  const jq=document.createElement('script');
+  jq.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+  document.head.appendChild(jq);
+
+  const qr=document.createElement('script');
+  qr.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+  document.head.appendChild(qr);
+})();
+
+// ══════════════════════════════
+// CONFIG
+// ══════════════════════════════
+
+
+
+
+const QR_COOLDOWN_MS     = 6000;  // QR再スキャン無視時間
+const ADMIN_PW           = '0000';
+
+const TYPE_LABEL = {in:'出勤',out:'退勤',go:'外出',back:'戻り'};
+const TYPE_ICON  = {in:'✅',out:'👋',go:'🚶',back:'🏃'};
+const TYPE_CARD  = {in:'c-in',out:'c-out',go:'c-go',back:'c-back'};
+const TYPE_B     = {in:'b-in',out:'b-out',go:'b-go',back:'b-back'};
+const TYPE_TB    = {in:'tb-in',out:'tb-out',go:'tb-go',back:'tb-back'};
+const TYPE_LB    = {in:'lb-in',out:'lb-out',go:'lb-go',back:'lb-back'};
+const MODE_LABEL = {in:'✅ 出勤', go:'🚶 外出', back:'🏃 戻り', out:'👋 退勤'};
+const MODE_MBCLS = {in:'mb-in', go:'mb-go', back:'mb-back', out:'mb-out'};
+
+// ══════════════════════════════
+// STATE
+// ══════════════════════════════
+let employees  = [];
+let records    = [];
+
+
+
+let qrStream   = null;
+
+let qrScanActive   = false;
+let recognizing = false;
+let selectedMode   = null;
+
+
+
+const recentScans    = {};
+
+// ══════════════════════════════
+// IndexedDB
+// ══════════════════════════════
+const DB_NAME    = 'AttendOS';
+const DB_VERSION = 1;
+let db = null;
+
+function openDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains('employees'))
+        d.createObjectStore('employees', {keyPath:'id'});
+      if(!d.objectStoreNames.contains('records'))
+        d.createObjectStore('records', {keyPath:'id'});
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function dbGetAll(storeName){
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(storeName, 'readonly');
+    const req = tx.objectStore(storeName).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function dbPut(storeName, obj){
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(storeName, 'readwrite');
+    const req = tx.objectStore(storeName).put(obj);
+    req.onsuccess = () => resolve();
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function dbDelete(storeName, key){
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(storeName, 'readwrite');
+    const req = tx.objectStore(storeName).delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function dbClear(storeName){
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(storeName, 'readwrite');
+    const req = tx.objectStore(storeName).clear();
+    req.onsuccess = () => resolve();
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+async function loadAllData(){
+  employees = await dbGetAll('employees');
+  const recs = await dbGetAll('records');
+  // timestamp降順（新しい順）で保持
+  records = recs.sort((a,b) => (b.timestamp||'').localeCompare(a.timestamp||''));
+}
+
+// save: 差分保存に対応した関数群
+async function saveEmployee(emp){
+  await dbPut('employees', emp);
+}
+async function deleteEmployeeDB(id){
+  await dbDelete('employees', id);
+}
+async function saveRecord(rec){
+  await dbPut('records', rec);
+}
+async function deleteRecordDB(id){
+  await dbDelete('records', id);
+}
+async function updateRecordDB(rec){
+  await dbPut('records', rec);
+}
+
+// 旧localStorageからの移行
+async function migrateFromLocalStorage(){
+  const oldEmps = localStorage.getItem('att2_employees');
+  const oldRecs = localStorage.getItem('att2_records');
+  let migrated = false;
+  if(oldEmps){
+    try{
+      const emps = JSON.parse(oldEmps);
+      if(emps.length > 0){
+        for(const e of emps) await dbPut('employees', e);
+        migrated = true;
+      }
+    }catch(_){}
+    localStorage.removeItem('att2_employees');
+  }
+  if(oldRecs){
+    try{
+      const recs = JSON.parse(oldRecs);
+      if(recs.length > 0){
+        for(const r of recs) await dbPut('records', r);
+        migrated = true;
+      }
+    }catch(_){}
+    localStorage.removeItem('att2_records');
+  }
+  if(migrated) showToast('既存データをIndexedDBへ移行しました');
+}
+
+function todayStr(){
+  return new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit'});
+}
+
+// ══════════════════════════════
+// CLOCK
+// ══════════════════════════════
+function tick(){
+  const n=new Date();
+  document.getElementById('clock').textContent=n.toLocaleTimeString('ja-JP',{hour12:false});
+  document.getElementById('dateDisp').textContent=
+    n.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+}
+setInterval(tick,1000);tick();
+
+// ══════════════════════════════
+// TABS
+// ══════════════════════════════
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach((t,i)=>
+    t.classList.toggle('active',['scan','records','employees'][i]===name));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if(name==='records')   renderRecords();
+  if(name==='employees') renderEmployees();
+}
+
+// ══════════════════════════════
+// 初期化
+// ══════════════════════════════
+(async function init(){
+  await openDB();
+  await migrateFromLocalStorage();
+  await loadAllData();
+  updateLog();updateStats();renderEmployees();
+})();
+
+// ══════════════════════════════
+// モード選択
+// ══════════════════════════════
+async function selectMode(type){
+  selectedMode = type;
+  recognizing  = false;
+  document.getElementById('stepButtons').style.display='none';
+  document.getElementById('stepScan').style.display='block';
+
+  const bar=document.getElementById('modeBar');
+  bar.textContent=MODE_LABEL[type]+' – QRコードをかざしてください';
+  bar.className='mode-bar '+MODE_MBCLS[type];
+
+  const card=document.getElementById('resultCard');
+  card.className='result-card';
+  card.innerHTML=`<div style="font-size:48px">📱</div>
+    <div style="color:var(--muted);font-size:13px;line-height:1.7">
+      QRコードをカメラに向けてください
+    </div>`;
+
+  document.getElementById('progBar').style.width='0%';
+  document.getElementById('progPct').textContent='--';
+  document.getElementById('progTxt').textContent='QRコードをかざしてください';
+  document.getElementById('progBar').className='prog-bar qr-prog';
+
+  showQRUI();
+  await startQRCamera();
+}
+
+function cancelMode(){
+  selectedMode=null;
+  qrScanActive=false;
+  recognizing=false;
+  stopQRCamera();
+  document.getElementById('stepScan').style.display='none';
+  document.getElementById('stepButtons').style.display='block';
+}
+
+function showQRUI(){
+  document.getElementById('qrVideo').style.display='block';
+  document.getElementById('qrFrame').style.display='block';
+}
+
+// ══════════════════════════════
+// QRカメラ
+// ══════════════════════════════
+async function startQRCamera(){
+  const dot=document.getElementById('liveDot');
+  const statusTxt=document.getElementById('camStatusTxt');
+  if(qrStream){
+    qrScanActive=true;
+    dot.classList.remove('off');
+    statusTxt.textContent='スキャン待機中 – QRコードをかざしてください';
+    requestAnimationFrame(qrScanLoop);
+    return;
+  }
+  const constraints=[
+    {video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}},
+    {video:{facingMode:'environment'}},
+    {video:true}
+  ];
+  let stream=null;
+  for(const c of constraints){
+    try{stream=await navigator.mediaDevices.getUserMedia(c);break;}catch(_){}
+  }
+  if(!stream){
+    dot.classList.add('off');
+    statusTxt.textContent='カメラエラー: アクセスに失敗しました';
+    return;
+  }
+  qrStream=stream;
+  const video=document.getElementById('qrVideo');
+  video.srcObject=stream;
+  video.onloadedmetadata=async()=>{
+    try{await video.play();}catch(_){}
+    dot.classList.remove('off');
+    statusTxt.textContent='スキャン待機中 – QRコードをかざしてください';
+    qrScanActive=true;
+    requestAnimationFrame(qrScanLoop);
+  };
+}
+
+function stopQRCamera(){
+  qrScanActive=false;
+  if(qrStream){qrStream.getTracks().forEach(t=>t.stop());qrStream=null;}
+}
+
+function qrScanLoop(){
+  if(!qrScanActive) return;
+  const video=document.getElementById('qrVideo');
+  const canvas=document.getElementById('qrScanCanvas');
+  if(video.readyState>=HTMLMediaElement.HAVE_ENOUGH_DATA&&video.videoWidth>0){
+    canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    try{
+      const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+      const code=window.jsQR&&jsQR(img.data,img.width,img.height,{inversionAttempts:'attemptBoth'});
+      if(code&&code.data){
+        const empId=code.data.trim().toUpperCase();
+        const now=Date.now();
+        if(!recentScans['qr_'+empId]||now-recentScans['qr_'+empId]>QR_COOLDOWN_MS){
+          recentScans['qr_'+empId]=now;
+          if(selectedMode&&!recognizing){
+            recognizing=true;
+            processQR(empId);
+            setTimeout(()=>cancelMode(),3000);
+          }
+        }
+      }
+    }catch(_){}
+  }
+  requestAnimationFrame(qrScanLoop);
+}
+
+// ══════════════════════════════
+// 打刻処理
+// ══════════════════════════════
+function getLastRecord(empId){
+  const today=todayStr();
+  return records.find(r=>r.empId===empId&&r.date===today)||null;
+}
+function nextType(last){
+  if(!last||last.type==='out') return 'in';
+  if(last.type==='in')         return 'go';
+  if(last.type==='go')         return 'back';
+  if(last.type==='back')       return 'out';
+  return 'in';
+}
+
+async function processAttendance(empId, type){
+  const emp=employees.find(e=>e.id===empId);
+  if(!emp) return;
+
+  const record={
+    id:Date.now(),empId:emp.id,empName:emp.name,dept:emp.dept,
+    type,method:'qr',confidence:null,
+    date:todayStr(),
+    time:new Date().toLocaleTimeString('ja-JP',{hour12:false}),
+    timestamp:new Date().toISOString(),
+  };
+  records.unshift(record);
+  await saveRecord(record);
+  showResult(emp,type,record.time);
+  playSound(type);
+  updateLog();updateStats();
+}
+
+function processQR(empId){
+  const emp=employees.find(e=>e.id===empId);
+  if(!emp){
+    showResultError('社員が見つかりません: '+empId);
+    recognizing=false;
+    return;
+  }
+  const type=selectedMode;
+  processAttendance(emp.id, type);
+}
+
+function showResult(emp,type,time){
+  const card=document.getElementById('resultCard');
+  card.className='result-card '+TYPE_CARD[type];
+  card.innerHTML=`
+    <div style="font-size:64px">👤</div>
+    <div class="result-name">${emp.name}</div>
+    <div class="result-dept">${emp.id} ／ ${emp.dept}</div>
+    <div class="result-badge ${TYPE_B[type]}">${TYPE_ICON[type]} ${TYPE_LABEL[type]}</div>
+    <div class="result-time">${time}</div>
+    <div class="result-method method-qr">📱 QRコード</div>
+  `;
+  showToast(`${emp.name}さんの${TYPE_LABEL[type]}を記録しました`);
+}
+
+function showResultError(msg){
+  const card=document.getElementById('resultCard');
+  card.className='result-card c-err';
+  card.innerHTML=`<div style="font-size:48px">❌</div><div style="color:var(--red);font-size:14px;margin-top:8px">${msg}</div>`;
+}
+
+// ══════════════════════════════
+// ログ & 統計
+// ══════════════════════════════
+function updateLog(){
+  const renderTo=(listId)=>{
+    const list=document.getElementById(listId);if(!list)return;
+    const recent=records.slice(0,15);
+    if(!recent.length){list.innerHTML='<div class="log-empty">まだ打刻がありません</div>';return;}
+    list.innerHTML=recent.map(r=>{
+      const emp=employees.find(e=>e.id===r.empId);
+      return `<div class="log-item">
+        <div class="log-avatar">👤</div>
+        <div class="log-info">
+          <div class="log-name">${r.empName}</div>
+          <div class="log-dept">${r.dept}</div>
+        </div>
+        <div class="log-time">${r.date.split('/').slice(1).join('/')} ${r.time}</div>
+        <div class="log-badge ${TYPE_LB[r.type]}">${TYPE_LABEL[r.type]}</div>
+      </div>`;
+    }).join('');
+  };
+  renderTo('logList');renderTo('logList2');
+}
+
+function updateStats(){
+  const today=todayStr();
+  const todayRec=records.filter(r=>r.date===today);
+  const inPpl =new Set(todayRec.filter(r=>r.type==='in').map(r=>r.empId));
+  const outPpl=new Set(todayRec.filter(r=>r.type==='out').map(r=>r.empId));
+  const lastStatus={};
+  [...todayRec].reverse().forEach(r=>{if(!(r.empId in lastStatus))lastStatus[r.empId]=r.type;});
+  let present=0,away=0;
+  Object.values(lastStatus).forEach(t=>{
+    if(t==='in'||t==='back')present++;
+    if(t==='go')away++;
+  });
+  const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
+  set('statIn',inPpl.size);set('statIn2',inPpl.size);
+  set('statOut',outPpl.size);set('statOut2',outPpl.size);
+  set('statPresent',present);set('statPresent2',present);
+  set('statAway',away);set('statAway2',away);
+}
+
+// ══════════════════════════════
+// 社員管理
+// ══════════════════════════════
+function renderEmployees(){
+  const grid=document.getElementById('empGrid');
+  if(!employees.length){grid.innerHTML='<div style="color:var(--muted)">社員が登録されていません</div>';return;}
+  grid.innerHTML=employees.map(e=>`
+    <div class="emp-card">
+      <div class="emp-avatar-wrap"><span style="font-size:28px">👤</span></div>
+      <div class="emp-name-txt">${e.name}</div>
+      <div class="emp-id-txt">${e.id}</div>
+      <div class="emp-dept-txt">${e.dept}</div>
+      <div class="emp-btn-row">
+        <button class="emp-qr-btn" onclick="showQR('${e.id}')">📱 QR表示</button>
+        <button class="btn btn-danger btn-sm" style="flex:1" onclick="deleteEmployee('${e.id}')">🗑 削除</button>
+      </div>
+    </div>`).join('');
+  updateStats();
+}
+
+async function addEmployee(){
+  const id  =document.getElementById('newId').value.trim().toUpperCase();
+  const name=document.getElementById('newName').value.trim();
+  const dept=document.getElementById('newDept').value;
+  if(!id||!name){showToast('IDと氏名を入力してください',true);return;}
+  if(employees.find(e=>e.id===id)){showToast('このIDはすでに使われています',true);return;}
+  const emp={id,name,dept};
+  employees.push(emp);
+  await saveEmployee(emp);
+  document.getElementById('newId').value='';
+  document.getElementById('newName').value='';
+  renderEmployees();
+  showToast(`${name}さんを登録しました`);
+}
+
+async function deleteEmployee(id){
+  if(!confirm('この社員を削除しますか？'))return;
+  employees=employees.filter(e=>e.id!==id);
+  await deleteEmployeeDB(id);
+  renderEmployees();
+}
+
+// ══════════════════════════════
+// QR表示Modal
+// ══════════════════════════════
+let currentQREmpId = null;
+
+function showQR(empId){
+  const emp=employees.find(e=>e.id===empId);if(!emp)return;
+  currentQREmpId = empId;
+  document.getElementById('qrModalName').textContent=emp.name;
+  document.getElementById('qrModalSub').textContent=emp.id+' ／ '+emp.dept;
+  document.getElementById('qrModal').classList.add('open');
+
+  const canvas=document.getElementById('qrDisplayCanvas');
+  const area=document.getElementById('qrDisplayArea');
+  area.innerHTML='<span style="color:#999;font-size:13px">生成中...</span>';
+
+  // qrcode.js が読み込まれていれば使う、なければ外部APIにフォールバック
+  function generateWithLib(){
+    if(typeof QRCode === 'undefined') return false;
+    const size=200;
+    area.innerHTML='';
+    const newCanvas=document.createElement('canvas');
+    newCanvas.id='qrDisplayCanvas';
+    newCanvas.width=size;newCanvas.height=size;
+    area.appendChild(newCanvas);
+    QRCode.toCanvas(newCanvas, empId, {
+      width:size, margin:2,
+      color:{dark:'#000000',light:'#ffffff'}
+    }, function(err){
+      if(err){
+        console.error('QR生成エラー:',err);
+        generateWithAPI();
+      }
+    });
+    return true;
+  }
+
+  function generateWithAPI(){
+    const size=200;
+    area.innerHTML='';
+    const newCanvas=document.createElement('canvas');
+    newCanvas.id='qrDisplayCanvas';
+    newCanvas.width=size;newCanvas.height=size;
+    area.appendChild(newCanvas);
+    const ctx=newCanvas.getContext('2d');
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=()=>{
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size);
+      ctx.drawImage(img,0,0,size,size);
+    };
+    img.onerror=()=>{
+      // 最終フォールバック: テキスト表示
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size);
+      ctx.fillStyle='#333';ctx.font='bold 13px monospace';ctx.textAlign='center';
+      ctx.fillText(empId,size/2,size/2);
+      ctx.font='11px sans-serif';ctx.fillStyle='#666';
+      ctx.fillText('QR生成失敗',size/2,size/2+20);
+    };
+    img.src=`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(empId)}&format=png&margin=2`;
+  }
+
+  // ライブラリ読み込みを少し待ってから試みる
+  function tryGenerate(attempts){
+    if(typeof QRCode !== 'undefined'){
+      generateWithLib();
+    } else if(attempts > 0){
+      setTimeout(()=>tryGenerate(attempts-1), 200);
+    } else {
+      generateWithAPI();
+    }
+  }
+  tryGenerate(10);
+}
+
+function saveQR(){
+  const canvas=document.getElementById('qrDisplayCanvas');
+  if(!canvas){showToast('QRコードが見つかりません',true);return;}
+  const emp=employees.find(e=>e.id===currentQREmpId);
+  const name=emp?emp.name:currentQREmpId;
+  // 余白付きの保存用canvasを作成
+  const pad=20, size=canvas.width+pad*2;
+  const saveCanvas=document.createElement('canvas');
+  saveCanvas.width=size;saveCanvas.height=size+40;
+  const ctx=saveCanvas.getContext('2d');
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,saveCanvas.width,saveCanvas.height);
+  ctx.drawImage(canvas,pad,pad);
+  ctx.fillStyle='#333333';
+  ctx.font='bold 13px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText(name,size/2,size+20);
+  ctx.font='11px monospace';ctx.fillStyle='#666';
+  ctx.fillText(currentQREmpId,size/2,size+36);
+
+  const a=document.createElement('a');
+  a.href=saveCanvas.toDataURL('image/png');
+  a.download=`QR_${currentQREmpId}_${name}.png`;
+  a.click();
+  showToast(`${name}さんのQRコードを保存しました`);
+}
+
+function closeQRModal(){document.getElementById('qrModal').classList.remove('open');}
+
+
+// ══════════════════════════════
+
+
+// ══════════════════════════════
+
+// ══════════════════════════════
+// 打刻記録ページ
+// ══════════════════════════════
+let sortKey='timestamp', sortDir='desc';
+const SORT_TYPE_ORDER={in:0,go:1,back:2,out:3};
+
+function setSort(key){
+  if(sortKey===key){sortDir=sortDir==='asc'?'desc':'asc';}
+  else{sortKey=key;sortDir=key==='empName'?'asc':'desc';}
+  renderRecords();
+}
+function updateSortIndicators(){
+  ['empId','empName','dept','type','method','confidence','date','time'].forEach(k=>{
+    const th=document.getElementById('th-'+k);
+    if(!th)return;
+    th.className=sortKey===k?('sort-'+sortDir):'';
+  });
+}
+function sortRecords(arr){
+  return [...arr].sort((a,b)=>{
+    let va,vb;
+    if(sortKey==='type'){va=SORT_TYPE_ORDER[a.type]??99;vb=SORT_TYPE_ORDER[b.type]??99;}
+    else if(sortKey==='confidence'){va=a.confidence??-1;vb=b.confidence??-1;}
+    else if(sortKey==='date'||sortKey==='time'){va=(a.date||'')+(a.time||'');vb=(b.date||'')+(b.time||'');}
+    else{va=(a[sortKey]||'').toString();vb=(b[sortKey]||'').toString();}
+    let cmp=typeof va==='string'?va.localeCompare(vb,'ja'):va<vb?-1:va>vb?1:0;
+    return sortDir==='asc'?cmp:-cmp;
+  });
+}
+function getFilteredRecords(){
+  const df=document.getElementById('filterDate').value;  // yyyy-mm-dd
+  const nf=document.getElementById('filterName').value.toLowerCase();
+  const tf=document.getElementById('filterType').value;
+  const mf=document.getElementById('filterMethod').value;
+  let filtered=records;
+  if(df){
+    // タイムゾーンずれを避けるため文字列で直接変換 yyyy-mm-dd → yyyy/mm/dd
+    const [y,m,d]=df.split('-');
+    const fmt=`${y}/${m}/${d}`;
+    filtered=filtered.filter(r=>r.date===fmt);
+  }
+  if(nf) filtered=filtered.filter(r=>r.empName.toLowerCase().includes(nf)||r.empId.toLowerCase().includes(nf));
+  if(tf) filtered=filtered.filter(r=>r.type===tf);
+  return sortRecords(filtered);
+}
+function renderRecords(){
+  updateSortIndicators();
+  const filtered=getFilteredRecords();
+  const tbody=document.getElementById('recordsBody');
+  if(!filtered.length){tbody.innerHTML='<tr><td colspan="9" class="table-empty">該当データなし</td></tr>';return;}
+  tbody.innerHTML=filtered.map(r=>{
+    const emp=employees.find(e=>e.id===r.empId);
+    const faceImg=emp?.faceImages?.[0]
+      ?`<img src="${emp.faceImages[0]}" alt=""/>` :`<span style="font-size:12px">👤</span>`;
+    const methodBadge=r.method==='face'
+      ?`<span class="tbl-method tm-face">🤖 顔認証</span>`
+      :r.method==='manual'
+      ?`<span class="tbl-method" style="background:rgba(255,229,0,.1);color:var(--yellow)">✏️ 手動</span>`
+      :`<span class="tbl-method tm-qr">📱 QR</span>`;
+    const editedMark = r.editedAt
+      ? `<span title="修正済: ${r.editedAt}" style="font-size:10px;color:var(--yellow);margin-left:4px">✏</span>` : '';
+    return `<tr>
+      <td class="mono">${r.empId}</td>
+      <td><span class="tbl-avatar">${faceImg}</span>${r.empName}${editedMark}</td>
+      <td style="color:var(--muted);font-size:11px">${r.dept}</td>
+      <td><span class="tbl-badge ${TYPE_TB[r.type]}">${TYPE_LABEL[r.type]}</span></td>
+      <td>${methodBadge}</td>
+      <td class="mono">${r.confidence!=null?r.confidence+'%':'-'}</td>
+      <td class="mono">${r.date}</td>
+      <td class="mono">${r.time}</td>
+      <td><button onclick="openEditModal(${r.id})" style="background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.2);border-radius:7px;color:var(--accent);font-size:11px;padding:4px 10px;cursor:pointer;font-family:var(--body)">✏️ 編集</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function exportCSV(){
+  const filtered=getFilteredRecords();
+  const BOM='\uFEFF';
+  const head='社員ID,氏名,部署,種別,認証方式,信頼度(%),日付,時刻\n';
+  const rows=filtered.map(r=>
+    `${r.empId},"${r.empName}",${r.dept},${TYPE_LABEL[r.type]},${r.method==='face'?'顔認証':r.method==='manual'?'手動修正':'QRコード'},${r.confidence??''},${r.date},${r.time}`
+  ).join('\n');
+  const blob=new Blob([BOM+head+rows],{type:'text/csv;charset=utf-8;'});
+  const a=Object.assign(document.createElement('a'),{
+    href:URL.createObjectURL(blob),
+    download:`勤怠記録_${todayStr().replace(/\//g,'-')}.csv`
+  });
+  a.click();showToast(`CSVをエクスポートしました（${filtered.length}件）`);
+}
+
+// ══════════════════════════════
+// 社員情報 バックアップ / 復元
+// ══════════════════════════════
+function backupEmployees(){
+  if(!employees.length){showToast('登録済み社員がいません',true);return;}
+  // 顔写真を含む完全なJSONを出力
+  const data={
+    version:1,
+    exportedAt:new Date().toISOString(),
+    employees:employees
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=Object.assign(document.createElement('a'),{
+    href:URL.createObjectURL(blob),
+    download:`社員バックアップ_${todayStr().replace(/\//g,'-')}.json`
+  });
+  a.click();
+  showToast(`社員情報${employees.length}名をバックアップしました`);
+}
+
+async function restoreEmployees(e){
+  const file=e.target.files[0];if(!file)return;
+  e.target.value='';
+  const pw=prompt('社員情報を復元します。\n管理者パスワードを入力してください:');
+  if(pw===null)return;
+  if(pw!==ADMIN_PW){showToast('パスワードが違います',true);return;}
+  try{
+    const text=await file.text();
+    const data=JSON.parse(text);
+    const imported=data.employees||data; // バージョン互換
+    if(!Array.isArray(imported)||!imported.length){showToast('有効な社員データが見つかりません',true);return;}
+    const mode=confirm(
+      `${imported.length}名の社員データが見つかりました。\n\n` +
+      `[OK] = 現在のデータに追加（重複IDはスキップ）\n[キャンセル] = 上書き（全データ置換）`
+    );
+    if(mode){
+      // 追加モード
+      let added=0;
+      for(const emp of imported){
+        if(!employees.find(e=>e.id===emp.id)){
+          employees.push(emp);
+          await saveEmployee(emp);
+          added++;
+        }
+      }
+      showToast(`${added}名を追加しました（重複${imported.length-added}名スキップ）`);
+    } else {
+      if(!confirm('現在の社員データをすべて上書きします。よろしいですか？'))return;
+      await dbClear('employees');
+      employees=[];
+      for(const emp of imported){
+        employees.push(emp);
+        await saveEmployee(emp);
+      }
+      showToast(`${imported.length}名の社員データで上書きしました`);
+    }
+    renderEmployees();
+  }catch(err){
+    showToast('ファイルの読み込みに失敗しました: '+err.message,true);
+  }
+}
+
+// ══════════════════════════════
+// 打刻記録 手動編集
+// ══════════════════════════════
+let editPwVerified = false;
+
+function openEditModal(recordId){
+  const rec=records.find(r=>r.id===recordId);
+  if(!rec){showToast('記録が見つかりません',true);return;}
+
+  // パスワードエリアを先に出す
+  editPwVerified=false;
+  document.getElementById('editPwArea').style.display='block';
+  document.getElementById('editFormArea').style.display='none';
+  document.getElementById('editPwInput').value='';
+  document.getElementById('editPwError').style.display='none';
+  document.getElementById('editRecordId').value=recordId;
+
+  // フォームに現在値をセット（認証後に表示）
+  document.getElementById('editEmpId').value=rec.empId;
+  document.getElementById('editEmpName').value=rec.empName;
+  document.getElementById('editType').value=rec.type;
+  document.getElementById('editMethod').value=rec.method||'manual';
+  document.getElementById('editReason').value='';
+
+  // 日付変換 (yyyy/mm/dd → yyyy-mm-dd)
+  const dateParts=rec.date.split('/');
+  document.getElementById('editDate').value=
+    dateParts.length===3?`${dateParts[0]}-${dateParts[1]}-${dateParts[2]}`:rec.date;
+  // 時刻（HH:MM:SS → HH:MM:SS そのまま type=time は HH:MM も可）
+  document.getElementById('editTime').value=rec.time;
+
+  document.getElementById('editRecordModal').classList.add('open');
+  setTimeout(()=>document.getElementById('editPwInput').focus(),100);
+}
+
+function verifyEditPw(){
+  const pw=document.getElementById('editPwInput').value;
+  if(pw!==ADMIN_PW){
+    document.getElementById('editPwError').style.display='block';
+    document.getElementById('editPwInput').select();
+    return;
+  }
+  editPwVerified=true;
+  document.getElementById('editPwArea').style.display='none';
+  document.getElementById('editFormArea').style.display='block';
+}
+
+async function saveEditRecord(){
+  if(!editPwVerified){showToast('パスワード認証が必要です',true);return;}
+  const id=Number(document.getElementById('editRecordId').value);
+  const idx=records.findIndex(r=>r.id===id);
+  if(idx===-1){showToast('記録が見つかりません',true);return;}
+
+  const dateVal=document.getElementById('editDate').value; // yyyy-mm-dd
+  const timeVal=document.getElementById('editTime').value; // HH:MM or HH:MM:SS
+  if(!dateVal||!timeVal){showToast('日付と時刻を入力してください',true);return;}
+
+  // 日付をja-JP形式に変換
+  const d=new Date(dateVal+'T'+timeVal);
+  const newDate=d.toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit'});
+  const newTime=d.toLocaleTimeString('ja-JP',{hour12:false});
+
+  const old={...records[idx]};
+  records[idx]={
+    ...records[idx],
+    type:document.getElementById('editType').value,
+    method:document.getElementById('editMethod').value,
+    date:newDate,
+    time:newTime,
+    timestamp:d.toISOString(),
+    confidence: document.getElementById('editMethod').value==='manual'?null:records[idx].confidence,
+    editedAt:new Date().toLocaleString('ja-JP',{hour12:false}),
+    editReason:document.getElementById('editReason').value.trim()||'手動修正',
+    originalType:old.type,
+    originalDate:old.date,
+    originalTime:old.time,
+  };
+  await updateRecordDB(records[idx]);
+  renderRecords();updateLog();updateStats();
+  closeEditModal();
+  showToast(`${records[idx].empName}さんの記録を修正しました`);
+}
+
+async function deleteRecord(){
+  if(!editPwVerified){showToast('パスワード認証が必要です',true);return;}
+  const id=Number(document.getElementById('editRecordId').value);
+  const rec=records.find(r=>r.id===id);
+  if(!rec)return;
+  if(!confirm(`${rec.empName}さんの「${TYPE_LABEL[rec.type]}」記録（${rec.date} ${rec.time}）を削除しますか？`))return;
+  records=records.filter(r=>r.id!==id);
+  await deleteRecordDB(id);
+  renderRecords();updateLog();updateStats();
+  closeEditModal();
+  showToast('記録を削除しました');
+}
+
+function closeEditModal(){
+  document.getElementById('editRecordModal').classList.remove('open');
+  editPwVerified=false;
+}
+
+// ══════════════════════════════
+// 本日データリセット
+// ══════════════════════════════
+async function resetToday(){
+  const today=todayStr();
+  const toDelete=records.filter(r=>r.date===today);
+  if(!toDelete.length){showToast('本日の打刻データはありません',true);return;}
+  const pw=prompt(`本日の打刻データ${toDelete.length}件を削除します。\n管理者パスワード:`);
+  if(pw===null)return;
+  if(pw!==ADMIN_PW){showToast('パスワードが違います',true);return;}
+  if(!confirm(`本日データ${toDelete.length}件を削除しますか？`))return;
+  for(const r of toDelete) await deleteRecordDB(r.id);
+  records=records.filter(r=>r.date!==today);
+  Object.keys(recentScans).forEach(k=>delete recentScans[k]);
+  updateLog();updateStats();renderRecords();
+  showToast(`本日データ${toDelete.length}件をリセットしました`);
+}
+
+// ══════════════════════════════
+// サウンド
+// ══════════════════════════════
+let audioCtx=null;
+function getACtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function playTone(notes,type='sine'){
+  const ctx=getACtx();let t=ctx.currentTime;
+  notes.forEach(([f,d,v=0.35])=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.type=type;o.frequency.setValueAtTime(f,t);
+    g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.001,t+d);
+    o.start(t);o.stop(t+d);t+=d*.85;
+  });
+}
+function playSound(type){
+  try{
+    if(type==='in')  playTone([[660,.12],[880,.18],[1100,.22]],'sine');
+    if(type==='go')  playTone([[880,.12],[660,.18]],'triangle');
+    if(type==='back')playTone([[660,.10],[880,.10],[770,.20]],'sine');
+    if(type==='out') playTone([[880,.15],[660,.15],[440,.30,.32]],'sine');
+  }catch(_){}
+}
+document.addEventListener('click',()=>{try{getACtx();}catch(_){}},{once:true});
+
+// ══════════════════════════════
+// TOAST
+// ══════════════════════════════
+let toastTimer;
+function showToast(msg,isErr=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.borderColor=isErr?'var(--red)':'var(--green)';
+  t.style.color=isErr?'var(--red)':'var(--green)';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+// 初期化 - 日付フィルターは常に今日
+function setTodayFilter(){
+  document.getElementById('filterDate').value=new Date().toISOString().split('T')[0];
+}
+setTodayFilter();
+// タブ切替時も今日の日付にリセット
+const _origSwitchTab=switchTab;
+switchTab=function(name){
+  _origSwitchTab(name);
+  if(name==='records') setTodayFilter();
+};
+</script>
+</body>
+</html>
