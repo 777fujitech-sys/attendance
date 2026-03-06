@@ -25,15 +25,6 @@
   --display: 'Orbitron', sans-serif;
   --body: 'Noto Sans JP', sans-serif;
 }
-body.light-mode{
-  --bg:#f0f4f8;--surface:#ffffff;--surface2:#e8eef5;
-  --border:#c0d0e0;--border2:#d8e6f0;
-  --accent:#0077aa;--accent2:#005588;
-  --green:#008844;--red:#cc2244;
-  --orange:#cc6600;--yellow:#997700;--purple:#7733cc;
-  --text:#1a2a3a;--muted:#7a9ab8;
-}
-body.light-mode::before,body.light-mode::after{display:none;}
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;}
 body{
@@ -614,7 +605,6 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
     <div class="header-clock" id="clock">----年--月--日(-)&nbsp;&nbsp;--:--:--</div>
     <div id="dateDisp" style="display:none"></div>
   </div>
-  <button id="themeBtn" onclick="toggleTheme()" title="ダーク/ライト切替" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);padding:6px 10px;cursor:pointer;font-size:16px;flex-shrink:0">🌙</button>
 </header>
 
 <div class="tabs">
@@ -738,11 +728,6 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
     <input type="date" id="filterDate" onchange="renderRecords()" style="width:140px"/>
     <button class="btn btn-secondary btn-sm" onclick="setTodayFilter();renderRecords();" style="padding:7px 12px;font-size:11px">📅 今日</button>
     <input type="text" id="filterName" placeholder="社員名・ID検索" oninput="renderRecords()" style="width:160px"/>
-    <select id="filterDept" onchange="renderRecords()">
-      <option value="">全部署</option>
-      <option>営業課</option><option>資材課</option><option>総務課</option>
-      <option>技術開発課</option><option>製造課</option>
-    </select>
     <select id="filterType" onchange="renderRecords()">
       <option value="">すべて</option>
       <option value="in">出勤</option>
@@ -757,8 +742,8 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
       <option value="manual">手動修正</option>
     </select>
     <div class="spacer"></div>
-    <button class="btn btn-danger" onclick="resetToday()">🔄 本日リセット</button>
-    <button class="btn btn-secondary" onclick="exportCSV()">⬇ CSV</button>
+    <button class="btn btn-danger" onclick="openResetModal()">🗑 データ削除</button>
+    <button class="btn btn-secondary" onclick="openCSVModal()">⬇ CSV出力</button>
   </div>
   <div class="table-wrap">
     <table>
@@ -946,6 +931,90 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
         <button class="btn btn-secondary" onclick="closeEditModal()">キャンセル</button>
         <button class="btn btn-primary" onclick="saveEditRecord()">💾 保存</button>
       </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── データ削除モーダル ── -->
+<div class="modal-overlay" id="resetModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">🗑 打刻データ削除</div>
+    <div class="modal-sub">削除方法を選択してください（管理者パスワードが必要です）</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
+      <label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+        <input type="radio" name="resetType" value="date" checked onchange="updateResetUI()"/>
+        <div>
+          <div style="font-size:13px;font-weight:700">A. 日付を指定して削除</div>
+          <div style="font-size:11px;color:var(--muted)">指定した日付の打刻データをすべて削除</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+        <input type="radio" name="resetType" value="older" onchange="updateResetUI()"/>
+        <div>
+          <div style="font-size:13px;font-weight:700">B. 〇日以上前のデータを削除</div>
+          <div style="font-size:11px;color:var(--muted)">指定した日数より古いデータをすべて削除</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+        <input type="radio" name="resetType" value="all" onchange="updateResetUI()"/>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--red)">C. 全データ削除</div>
+          <div style="font-size:11px;color:var(--muted)">すべての打刻記録を削除（取り消し不可）</div>
+        </div>
+      </label>
+    </div>
+    <!-- A: 日付指定 -->
+    <div id="resetOptDate" style="margin-bottom:14px">
+      <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px">削除する日付</label>
+      <input type="date" id="resetDate" class="form-input" style="width:100%"/>
+    </div>
+    <!-- B: 日数指定 -->
+    <div id="resetOptOlder" style="margin-bottom:14px;display:none">
+      <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px">何日以上前のデータを削除</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="number" id="resetDays" class="form-input" value="180" min="1" style="width:120px" oninput="updateOlderCount()"/>
+        <span style="font-size:13px;color:var(--muted)">日以上前</span>
+      </div>
+      <div id="resetOlderCount" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
+    </div>
+    <!-- C: 全削除 -->
+    <div id="resetOptAll" style="margin-bottom:14px;display:none">
+      <div style="background:rgba(255,51,85,.08);border:1px solid rgba(255,51,85,.3);border-radius:10px;padding:12px;font-size:12px;color:var(--red)">
+        ⚠️ すべての打刻記録（<span id="resetAllCount">0</span>件）が削除されます。この操作は取り消せません。
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:6px">
+      <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px">管理者パスワード</label>
+      <input type="password" id="resetPwInput" class="form-input" placeholder="パスワードを入力" style="width:100%" onkeydown="if(event.key==='Enter')execReset()"/>
+    </div>
+    <div id="resetPwError" style="font-size:11px;color:var(--red);margin-bottom:10px;display:none">パスワードが違います</div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeResetModal()">キャンセル</button>
+      <button class="btn btn-danger" onclick="execReset()">🗑 削除実行</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CSV出力モーダル ── -->
+<div class="modal-overlay" id="csvModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">⬇ CSV出力</div>
+    <div class="modal-sub">出力する期間を指定してください</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div class="form-group">
+        <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px">開始日</label>
+        <input type="date" id="csvDateFrom" class="form-input" style="width:100%" onchange="updateCSVCount()"/>
+      </div>
+      <div class="form-group">
+        <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px">終了日</label>
+        <input type="date" id="csvDateTo" class="form-input" style="width:100%" onchange="updateCSVCount()"/>
+      </div>
+    </div>
+    <div id="csvCount" style="font-size:12px;color:var(--muted);margin-bottom:14px;text-align:center"></div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeCSVModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="execCSV()">⬇ ダウンロード</button>
     </div>
   </div>
 </div>
@@ -1515,16 +1584,15 @@ async function processAttendance(empId, confidence, type, method){
   }
   recentScans[empId]=now;
 
-  // 1日1回制限 + 出勤なし制限（12）
+  // 1日1回制限（出勤・退勤）
   const _today=todayStr();
-  if(type==='in'&&hasTypeOnDate(empId,'in',_today)){
-    showToast(`${emp.name}さんは本日すでに出勤が記録されています`,true);return;
+  if(type==='in' && hasTypeOnDate(empId,'in',_today)){
+    showToast(`${emp.name}さんは本日すでに出勤が記録されています`,true);
+    return;
   }
-  if(type==='out'&&hasTypeOnDate(empId,'out',_today)){
-    showToast(`${emp.name}さんは本日すでに退勤が記録されています`,true);return;
-  }
-  if((type==='go'||type==='back'||type==='out')&&!hasTypeOnDate(empId,'in',_today)){
-    showToast(`${emp.name}さんは本日まだ出勤が記録されていません`,true);return;
+  if(type==='out' && hasTypeOnDate(empId,'out',_today)){
+    showToast(`${emp.name}さんは本日すでに退勤が記録されています`,true);
+    return;
   }
 
   const record={
@@ -1890,17 +1958,20 @@ function sortRecords(arr){
   });
 }
 function getFilteredRecords(){
-  const df=document.getElementById('filterDate').value;
+  const df=document.getElementById('filterDate').value;  // yyyy-mm-dd
   const nf=document.getElementById('filterName').value.toLowerCase();
   const tf=document.getElementById('filterType').value;
   const mf=document.getElementById('filterMethod').value;
-  const deptf=document.getElementById('filterDept')?.value||'';
   let filtered=records;
-  if(df){const[y,m,d]=df.split('-');filtered=filtered.filter(r=>r.date===`${y}/${m}/${d}`);}
-  if(nf)    filtered=filtered.filter(r=>r.empName.toLowerCase().includes(nf)||r.empId.toLowerCase().includes(nf));
-  if(tf)    filtered=filtered.filter(r=>r.type===tf);
-  if(mf)    filtered=filtered.filter(r=>r.method===mf);
-  if(deptf) filtered=filtered.filter(r=>r.dept===deptf);
+  if(df){
+    // タイムゾーンずれを避けるため文字列で直接変換 yyyy-mm-dd → yyyy/mm/dd
+    const [y,m,d]=df.split('-');
+    const fmt=`${y}/${m}/${d}`;
+    filtered=filtered.filter(r=>r.date===fmt);
+  }
+  if(nf) filtered=filtered.filter(r=>r.empName.toLowerCase().includes(nf)||r.empId.toLowerCase().includes(nf));
+  if(tf) filtered=filtered.filter(r=>r.type===tf);
+  if(mf) filtered=filtered.filter(r=>r.method===mf);
   return sortRecords(filtered);
 }
 function renderRecords(){
@@ -1933,20 +2004,7 @@ function renderRecords(){
   }).join('');
 }
 
-function exportCSV(){
-  const filtered=getFilteredRecords();
-  const BOM='\uFEFF';
-  const head='社員ID,氏名,部署,種別,認証方式,信頼度(%),日付,時刻\n';
-  const rows=filtered.map(r=>
-    `${r.empId},"${r.empName}",${r.dept},${TYPE_LABEL[r.type]},${r.method==='face'?'顔認証':r.method==='manual'?'手動修正':'QRコード'},${r.confidence??''},${r.date},${r.time}`
-  ).join('\n');
-  const blob=new Blob([BOM+head+rows],{type:'text/csv;charset=utf-8;'});
-  const a=Object.assign(document.createElement('a'),{
-    href:URL.createObjectURL(blob),
-    download:`勤怠記録_${todayStr().replace(/\//g,'-')}.csv`
-  });
-  a.click();showToast(`CSVをエクスポートしました（${filtered.length}件）`);
-}
+function exportCSV(){ openCSVModal(); }
 
 // ══════════════════════════════
 // 社員情報 バックアップ / 復元
@@ -2126,19 +2184,111 @@ function closeEditModal(){
 // ══════════════════════════════
 // 本日データリセット
 // ══════════════════════════════
-async function resetToday(){
-  const today=todayStr();
-  const toDelete=records.filter(r=>r.date===today);
-  if(!toDelete.length){showToast('本日の打刻データはありません',true);return;}
-  const pw=prompt(`本日の打刻データ${toDelete.length}件を削除します。\n管理者パスワード:`);
-  if(pw===null)return;
-  if(pw!==ADMIN_PW){showToast('パスワードが違います',true);return;}
-  if(!confirm(`本日データ${toDelete.length}件を削除しますか？`))return;
+async function resetToday(){ openResetModal(); }
+
+// ══════════════════════════════
+// データ削除モーダル
+// ══════════════════════════════
+function openResetModal(){
+  document.getElementById('resetPwInput').value='';
+  document.getElementById('resetPwError').style.display='none';
+  document.getElementById('resetDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('resetAllCount').textContent=records.length;
+  document.querySelector('input[name="resetType"][value="date"]').checked=true;
+  updateResetUI();
+  document.getElementById('resetModal').classList.add('open');
+}
+function closeResetModal(){ document.getElementById('resetModal').classList.remove('open'); }
+function updateResetUI(){
+  const t=document.querySelector('input[name="resetType"]:checked').value;
+  document.getElementById('resetOptDate').style.display  = t==='date'  ? 'block':'none';
+  document.getElementById('resetOptOlder').style.display = t==='older' ? 'block':'none';
+  document.getElementById('resetOptAll').style.display   = t==='all'   ? 'block':'none';
+  if(t==='older') updateOlderCount();
+}
+function updateOlderCount(){
+  const days=parseInt(document.getElementById('resetDays').value)||0;
+  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-days);
+  const n=records.filter(r=>new Date(r.timestamp||r.date)<cutoff).length;
+  document.getElementById('resetOlderCount').textContent='該当件数: '+n+'件';
+}
+async function execReset(){
+  const pw=document.getElementById('resetPwInput').value;
+  if(pw!==ADMIN_PW){
+    document.getElementById('resetPwError').style.display='block';
+    document.getElementById('resetPwInput').select(); return;
+  }
+  const t=document.querySelector('input[name="resetType"]:checked').value;
+  let toDelete=[];
+  if(t==='date'){
+    const v=document.getElementById('resetDate').value;
+    if(!v){showToast('日付を選択してください',true);return;}
+    const[yr,mo,dy]=v.split('-');
+    const ds=yr+'/'+mo+'/'+dy;
+    toDelete=records.filter(r=>r.date===ds);
+    if(!toDelete.length){showToast('指定日の打刻データがありません',true);return;}
+    if(!confirm(ds+'の打刻データ '+toDelete.length+'件を削除しますか？')) return;
+  } else if(t==='older'){
+    const days=parseInt(document.getElementById('resetDays').value)||0;
+    const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-days);
+    toDelete=records.filter(r=>new Date(r.timestamp||r.date)<cutoff);
+    if(!toDelete.length){showToast('該当するデータがありません',true);return;}
+    if(!confirm(days+'日以上前のデータ '+toDelete.length+'件を削除しますか？')) return;
+  } else {
+    if(!records.length){showToast('打刻データがありません',true);return;}
+    if(!confirm('全打刻データ '+records.length+'件を削除しますか？\nこの操作は取り消せません。')) return;
+    toDelete=[...records];
+  }
   for(const r of toDelete) await deleteRecordDB(r.id);
-  records=records.filter(r=>r.date!==today);
+  const ids=new Set(toDelete.map(r=>r.id));
+  records=records.filter(r=>!ids.has(r.id));
   Object.keys(recentScans).forEach(k=>delete recentScans[k]);
-  updateLog();updateStats();renderRecords();
-  showToast(`本日データ${toDelete.length}件をリセットしました`);
+  updateLog(); updateStats(); renderRecords();
+  closeResetModal();
+  showToast(toDelete.length+'件の打刻データを削除しました');
+}
+
+// ══════════════════════════════
+// CSV出力モーダル
+// ══════════════════════════════
+function openCSVModal(){
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('csvDateFrom').value=today;
+  document.getElementById('csvDateTo').value=today;
+  updateCSVCount();
+  document.getElementById('csvModal').classList.add('open');
+}
+function closeCSVModal(){ document.getElementById('csvModal').classList.remove('open'); }
+function updateCSVCount(){
+  document.getElementById('csvCount').textContent='対象件数: '+getCSVRecords().length+'件';
+}
+function getCSVRecords(){
+  const from=document.getElementById('csvDateFrom').value;
+  const to  =document.getElementById('csvDateTo').value;
+  return records.filter(r=>{
+    const d=new Date(r.timestamp||r.date+'T00:00:00');
+    const f=from?new Date(from+'T00:00:00'):null;
+    const t=to  ?new Date(to  +'T23:59:59'):null;
+    return (!f||d>=f)&&(!t||d<=t);
+  });
+}
+function execCSV(){
+  const filtered=getCSVRecords();
+  if(!filtered.length){showToast('該当する打刻データがありません',true);return;}
+  const from=document.getElementById('csvDateFrom').value;
+  const to  =document.getElementById('csvDateTo').value;
+  const BOM='\uFEFF';
+  const head='社員ID,氏名,部署,種別,認証方式,信頼度(%),日付,時刻\n';
+  const rows=filtered.map(r=>
+    r.empId+',"'+r.empName+'",'+r.dept+','+TYPE_LABEL[r.type]+','
+    +(r.method==='face'?'顔認証':r.method==='manual'?'手動修正':'QRコード')+','
+    +(r.confidence??'')+','+r.date+','+r.time
+  ).join('\n');
+  const blob=new Blob([BOM+head+rows],{type:'text/csv;charset=utf-8;'});
+  const fname=(from===to ? '勤怠記録_'+from : '勤怠記録_'+from+'_'+to)+'.csv';
+  Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:fname}).click();
+  closeCSVModal();
+  showToast('CSVをエクスポートしました（'+filtered.length+'件）');
 }
 
 // ══════════════════════════════
@@ -2158,28 +2308,12 @@ function playTone(notes,type='sine'){
 }
 function playSound(type){
   try{
-    // 出勤: ド・ミ・ソ・ド の明るい上昇4音（ようこそ）
-    if(type==='in')  playTone([[523,.10,.3],[659,.10,.3],[784,.10,.3],[1047,.38,.45]],'sine');
-    // 外出: ポポッ と軽快な下降2音（行ってきます）
-    if(type==='go')  playTone([[880,.09,.4],[587,.28,.3]],'square');
-    // 戻り: ポポポン と上昇3音（ただいま）
-    if(type==='back')playTone([[659,.09,.3],[784,.09,.3],[1047,.30,.42]],'sine');
-    // 退勤: ゆったり下降4音（お疲れさまでした）
-    if(type==='out') playTone([[784,.18,.38],[659,.18,.32],[523,.18,.28],[392,.44,.25]],'sine');
+    if(type==='in')  playTone([[660,.12],[880,.18],[1100,.22]],'sine');
+    if(type==='go')  playTone([[880,.12],[660,.18]],'triangle');
+    if(type==='back')playTone([[660,.10],[880,.10],[770,.20]],'sine');
+    if(type==='out') playTone([[880,.15],[660,.15],[440,.30,.32]],'sine');
   }catch(_){}
 }
-// ── テーマ切替 ──
-function toggleTheme(){
-  const light=document.body.classList.toggle('light-mode');
-  document.getElementById('themeBtn').textContent=light?'☀️':'🌙';
-  localStorage.setItem('att_theme',light?'light':'dark');
-}
-(function(){
-  if(localStorage.getItem('att_theme')==='light'){
-    document.body.classList.add('light-mode');
-    setTimeout(()=>{const b=document.getElementById('themeBtn');if(b)b.textContent='☀️';},0);
-  }
-})();
 document.addEventListener('click',()=>{try{getACtx();}catch(_){}},{once:true});
 
 // ══════════════════════════════
