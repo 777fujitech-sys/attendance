@@ -171,6 +171,9 @@ header{
   grid-template-columns:1fr 400px;
   gap:20px;align-items:start;
 }
+@media(max-width:1024px){
+  .scan-layout{grid-template-columns:1fr;}
+}
 
 /* カメラパネル */
 .cam-panel{
@@ -193,9 +196,10 @@ header{
 
 .cam-wrap{
   position:relative;width:100%;aspect-ratio:4/3;
+  max-height:60vh;
   background:#000;overflow:hidden;
 }
-#faceVideo,#qrVideo{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1);}
+#faceVideo,#qrVideo{width:100%;height:100%;object-fit:contain;display:block;transform:scaleX(-1);background:#000;}
 #faceCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
 #qrScanCanvas{display:none;}
 
@@ -548,6 +552,8 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
   .emp-add-grid{grid-template-columns:1fr 1fr;}
   .action-btn-grid{grid-template-columns:1fr 1fr;}
   .auth-mode-bar{flex-direction:column;}
+  .cam-wrap{aspect-ratio:unset;height:50vw;max-height:50vh;}
+  .right-col{display:none;}
 }
 </style>
 </head>
@@ -943,7 +949,7 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
 // CONFIG
 // ══════════════════════════════
 const MODEL_URL          = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/';
-const MATCH_THRESHOLD    = 0.6;   // FaceMatcher距離閾値（小さいほど厳しい）
+const MATCH_THRESHOLD    = 0.5;   // FaceMatcher距離閾値（小さいほど厳しい）
 const FACE_CONF_THRESHOLD= 0.60;  // 顔認証 信頼度60%以上で打刻
 const SCAN_COOLDOWN_MS   = 6000; // 同一人物の再打刻クールダウン
 const QR_COOLDOWN_MS     = 6000;  // QR再スキャン無視時間
@@ -1544,23 +1550,24 @@ function updateLog(){
 
 function updateStats(){
   const today=todayStr();
+  // records は新しい順に並んでいるので、そのまま「最初に見つかった=最新」として使う
   const todayRec=records.filter(r=>r.date===today);
 
-  // 各社員の最後のステータスを取得（古い順→新しい順で上書き）
+  // 各社員の最新ステータス（recordsは新しい順なので最初に出たものが最新）
   const lastStatus={};
-  [...todayRec].reverse().forEach(r=>{
+  todayRec.forEach(r=>{
     if(!(r.empId in lastStatus)) lastStatus[r.empId]=r.type;
   });
 
-  // 本日出勤：一度でも出勤打刻した人（何回打刻しても1人1カウント）
+  // 本日出勤：一度でも出勤打刻した人（重複なし）
   const inPpl=new Set(todayRec.filter(r=>r.type==='in').map(r=>r.empId));
 
-  // 本日退勤：最後のステータスが退勤の人
+  // 各カウント：最新ステータスで判定
   let outCount=0, present=0, away=0;
   Object.values(lastStatus).forEach(t=>{
-    if(t==='out')  outCount++;
+    if(t==='out')            outCount++;
     if(t==='in'||t==='back') present++;
-    if(t==='go')   away++;
+    if(t==='go')             away++;
   });
 
   const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
