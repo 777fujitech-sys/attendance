@@ -657,10 +657,6 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
       <div class="log-title">直近の打刻</div>
       <div class="log-list" id="logList"><div class="log-empty">まだ打刻がありません</div></div>
     </div>
-    <div class="log-panel" style="margin-top:16px">
-      <div class="log-title" style="display:flex;justify-content:space-between;align-items:center"><span>👥 本日の在席状況</span><span id="statusSummary" style="font-size:10px;color:var(--accent);font-weight:400"></span></div>
-      <div class="log-list" id="statusList"><div class="log-empty">データがありません</div></div>
-    </div>
   </div>
 
   <!-- Step 2: スキャン画面（ボタン選択後に表示） -->
@@ -746,10 +742,8 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
       <option value="manual">手動修正</option>
     </select>
     <div class="spacer"></div>
-    <button class="btn btn-danger" onclick="openResetModal()">🗑 データ削除</button>
-    <button class="btn btn-secondary" onclick="openCSVModal()">⬇ CSV出力</button>
-    <button class="btn btn-secondary" onclick="backupRecords()">💾 記録バックアップ</button>
-    <label class="btn btn-secondary" style="cursor:pointer">📂 記録復元<input type="file" accept=".json" style="display:none" onchange="restoreRecords(event)"/></label>
+    <button class="btn btn-danger" onclick="resetToday()">🔄 本日リセット</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">⬇ CSV</button>
   </div>
   <div class="table-wrap">
     <table>
@@ -937,86 +931,6 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
         <button class="btn btn-secondary" onclick="closeEditModal()">キャンセル</button>
         <button class="btn btn-primary" onclick="saveEditRecord()">💾 保存</button>
       </div>
-    </div>
-  </div>
-</div>
-
-
-<!-- データ削除モーダル -->
-<div class="modal-overlay" id="resetModal">
-  <div class="modal" style="max-width:480px">
-    <div class="modal-title">🗑 打刻データ削除</div>
-    <div class="modal-sub">削除方法を選択してください（管理者パスワードが必要です）</div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
-      <label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer">
-        <input type="radio" name="resetType" value="date" checked onchange="updateResetUI()"/>
-        <div><div style="font-size:13px;font-weight:700">A. 日付を指定して削除</div><div style="font-size:11px;color:var(--muted)">指定した日付の打刻データをすべて削除</div></div>
-      </label>
-      <label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer">
-        <input type="radio" name="resetType" value="older" onchange="updateResetUI()"/>
-        <div><div style="font-size:13px;font-weight:700">B. 〇日以上前のデータを削除</div><div style="font-size:11px;color:var(--muted)">指定した日数より古いデータをすべて削除</div></div>
-      </label>
-      <label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer">
-        <input type="radio" name="resetType" value="all" onchange="updateResetUI()"/>
-        <div><div style="font-size:13px;font-weight:700;color:var(--red)">C. 全データ削除</div><div style="font-size:11px;color:var(--muted)">すべての打刻記録を削除（取り消し不可）</div></div>
-      </label>
-    </div>
-    <div id="resetOptDate" style="margin-bottom:14px">
-      <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px">削除する日付</label>
-      <input type="date" id="resetDate" class="form-input" style="width:100%"/>
-    </div>
-    <div id="resetOptOlder" style="margin-bottom:14px;display:none">
-      <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px">何日以上前のデータを削除</label>
-      <div style="display:flex;align-items:center;gap:10px">
-        <input type="number" id="resetDays" class="form-input" value="180" min="1" style="width:120px" oninput="updateOlderCount()"/>
-        <span style="font-size:13px;color:var(--muted)">日以上前</span>
-      </div>
-      <div id="resetOlderCount" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
-    </div>
-    <div id="resetOptAll" style="margin-bottom:14px;display:none">
-      <div style="background:rgba(255,51,85,.08);border:1px solid rgba(255,51,85,.3);border-radius:10px;padding:12px;font-size:12px;color:var(--red)">
-        ⚠️ すべての打刻記録（<span id="resetAllCount">0</span>件）が削除されます。この操作は取り消せません。
-      </div>
-    </div>
-    <div class="form-group" style="margin-bottom:6px">
-      <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px">管理者パスワード</label>
-      <input type="password" id="resetPwInput" class="form-input" placeholder="パスワードを入力" style="width:100%" onkeydown="if(event.key==='Enter')execReset()"/>
-    </div>
-    <div id="resetPwError" style="font-size:11px;color:var(--red);margin-bottom:10px;display:none">パスワードが違います</div>
-    <div class="modal-btns">
-      <button class="btn btn-secondary" onclick="closeResetModal()">キャンセル</button>
-      <button class="btn btn-danger" onclick="execReset()">🗑 削除実行</button>
-    </div>
-  </div>
-</div>
-
-<!-- CSV / Excel 出力モーダル -->
-<div class="modal-overlay" id="csvModal">
-  <div class="modal" style="max-width:420px">
-    <div class="modal-title">⬇ CSV / Excel 出力</div>
-    <div class="modal-sub">出力する期間とフォーマットを指定してください</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-      <div class="form-group">
-        <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px">開始日</label>
-        <input type="date" id="csvDateFrom" class="form-input" style="width:100%" onchange="updateCSVCount()"/>
-      </div>
-      <div class="form-group">
-        <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px">終了日</label>
-        <input type="date" id="csvDateTo" class="form-input" style="width:100%" onchange="updateCSVCount()"/>
-      </div>
-    </div>
-    <div style="display:flex;gap:20px;margin-bottom:14px">
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer">
-        <input type="radio" name="csvFormat" value="csv" checked/> CSV（.csv）
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer">
-        <input type="radio" name="csvFormat" value="xlsx"/> Excel（.xls）
-      </label>
-    </div>
-    <div id="csvCount" style="font-size:12px;color:var(--muted);margin-bottom:14px;text-align:center"></div>
-    <div class="modal-btns">
-      <button class="btn btn-secondary" onclick="closeCSVModal()">キャンセル</button>
-      <button class="btn btn-primary" onclick="execExport()">⬇ ダウンロード</button>
     </div>
   </div>
 </div>
@@ -1563,6 +1477,9 @@ function getLastRecord(empId){
   const today=todayStr();
   return records.find(r=>r.empId===empId&&r.date===today)||null;
 }
+function hasTypeOnDate(empId,type,dateStr,excludeId=null){
+  return records.some(r=>r.empId===empId&&r.type===type&&r.date===dateStr&&(excludeId===null||r.id!==excludeId));
+}
 function nextType(last){
   if(!last||last.type==='out') return 'in';
   if(last.type==='in')         return 'go';
@@ -1575,20 +1492,25 @@ async function processAttendance(empId, confidence, type, method){
   const emp=employees.find(e=>e.id===empId);
   if(!emp) return;
 
-  // クールダウン（顔・QR統合）
+  // クールダウン
   const now=Date.now();
   if(recentScans[empId]&&now-recentScans[empId]<SCAN_COOLDOWN_MS){
-    const sec=Math.ceil((SCAN_COOLDOWN_MS-(now-recentScans[empId]))/1000);
-    showToast(`${emp.name}さんは連続打刻の制限中です（あと${sec}秒）`,true);
+    showToast(`${emp.name}さんは連続打刻の制限中です`,true);
     return;
   }
   recentScans[empId]=now;
 
-  // 同じ種別の連続打刻を警告
-  const _last=getLastRecord(empId);
-  if(_last&&_last.type===type){
-    if(!confirm(`${emp.name}さんは既に「${TYPE_LABEL[type]}」が記録されています。\n続けて打刻しますか？`)) return;
+  // 1日1回制限（出勤・退勤）
+  const _today=todayStr();
+  if(type==='in' && hasTypeOnDate(empId,'in',_today)){
+    showToast(`${emp.name}さんは本日すでに出勤が記録されています`,true);
+    return;
   }
+  if(type==='out' && hasTypeOnDate(empId,'out',_today)){
+    showToast(`${emp.name}さんは本日すでに退勤が記録されています`,true);
+    return;
+  }
+
   const record={
     id:Date.now(),empId:emp.id,empName:emp.name,dept:emp.dept,
     type,method,
@@ -1648,7 +1570,6 @@ function showResultError(msg){
 // ログ & 統計
 // ══════════════════════════════
 function updateLog(){
-  renderStatusList();
   const renderTo=(listId)=>{
     const list=document.getElementById(listId);if(!list)return;
     const recent=records.slice(0,15);
@@ -1702,31 +1623,6 @@ function updateStats(){
   set('statAway',away);       set('statAway2',away);
 }
 
-
-// ══════════════════════════════
-// 在席状況リスト
-// ══════════════════════════════
-const STATUS_ICON={in:'✅',go:'🚶',back:'🏃',out:'👋'};
-const STATUS_CLR={in:'var(--green)',go:'#f90',back:'#ff0',out:'var(--muted)'};
-const STATUS_LBL={in:'出勤中',go:'外出中',back:'在席(戻)',out:'退勤済'};
-function renderStatusList(){
-  const el=document.getElementById('statusList'); if(!el) return;
-  const today=todayStr(), tr=records.filter(r=>r.date===today);
-  const mp={}; tr.forEach(r=>{if(!(r.empId in mp))mp[r.empId]=r;});
-  const items=Object.values(mp).sort((a,b)=>a.empName.localeCompare(b.empName,'ja'));
-  if(!items.length){el.innerHTML='<div class="log-empty">本日の打刻がありません</div>';
-    const s=document.getElementById('statusSummary');if(s)s.textContent='';return;}
-  const pc=items.filter(r=>r.type==='in'||r.type==='back').length;
-  const ac=items.filter(r=>r.type==='go').length;
-  const oc=items.filter(r=>r.type==='out').length;
-  const s=document.getElementById('statusSummary');
-  if(s)s.textContent=`在席${pc} / 外出${ac} / 退勤${oc}`;
-  el.innerHTML=items.map(r=>{
-    const emp=employees.find(e=>e.id===r.empId);
-    const av=emp?.faceImages?.[0]?`<img src="${emp.faceImages[0]}" alt=""/>`:'<span style="font-size:13px">👤</span>';
-    return `<div class="log-item"><div class="log-avatar">${av}</div><div class="log-info"><div class="log-name">${r.empName}</div><div class="log-dept">${r.dept}</div></div><div class="log-time">${r.time}</div><div class="log-badge" style="background:rgba(0,0,0,.3);color:${STATUS_CLR[r.type]};border:1px solid ${STATUS_CLR[r.type]}">${STATUS_ICON[r.type]} ${STATUS_LBL[r.type]}</div></div>`;
-  }).join('');
-}
 // ══════════════════════════════
 // 社員管理
 // ══════════════════════════════
@@ -2024,7 +1920,20 @@ function renderRecords(){
   }).join('');
 }
 
-function exportCSV(){ openCSVModal(); }
+function exportCSV(){
+  const filtered=getFilteredRecords();
+  const BOM='\uFEFF';
+  const head='社員ID,氏名,部署,種別,認証方式,信頼度(%),日付,時刻\n';
+  const rows=filtered.map(r=>
+    `${r.empId},"${r.empName}",${r.dept},${TYPE_LABEL[r.type]},${r.method==='face'?'顔認証':r.method==='manual'?'手動修正':'QRコード'},${r.confidence??''},${r.date},${r.time}`
+  ).join('\n');
+  const blob=new Blob([BOM+head+rows],{type:'text/csv;charset=utf-8;'});
+  const a=Object.assign(document.createElement('a'),{
+    href:URL.createObjectURL(blob),
+    download:`勤怠記録_${todayStr().replace(/\//g,'-')}.csv`
+  });
+  a.click();showToast(`CSVをエクスポートしました（${filtered.length}件）`);
+}
 
 // ══════════════════════════════
 // 社員情報 バックアップ / 復元
@@ -2151,9 +2060,21 @@ async function saveEditRecord(){
   const newTime=d.toLocaleTimeString('ja-JP',{hour12:false});
 
   const old={...records[idx]};
+  const newType=document.getElementById('editType').value;
+
+  // 1日1回制限チェック（自分自身の記録は除外して判定）
+  if(newType==='in' && hasTypeOnDate(old.empId,'in',newDate,old.id)){
+    showToast(`${old.empName}さんは${newDate}にすでに出勤が記録されています\n手動修正できません`,true);
+    return;
+  }
+  if(newType==='out' && hasTypeOnDate(old.empId,'out',newDate,old.id)){
+    showToast(`${old.empName}さんは${newDate}にすでに退勤が記録されています\n手動修正できません`,true);
+    return;
+  }
+
   records[idx]={
     ...records[idx],
-    type:document.getElementById('editType').value,
+    type:newType,
     method:document.getElementById('editMethod').value,
     date:newDate,
     time:newTime,
@@ -2192,173 +2113,19 @@ function closeEditModal(){
 // ══════════════════════════════
 // 本日データリセット
 // ══════════════════════════════
-async function resetToday(){ openResetModal(); }
-
-// ══════════════════════════════
-// データ削除モーダル JS
-// ══════════════════════════════
-function openResetModal(){
-  document.getElementById('resetPwInput').value='';
-  document.getElementById('resetPwError').style.display='none';
-  document.getElementById('resetDate').value=new Date().toISOString().split('T')[0];
-  document.getElementById('resetAllCount').textContent=records.length;
-  document.querySelector('input[name="resetType"][value="date"]').checked=true;
-  updateResetUI();
-  document.getElementById('resetModal').classList.add('open');
-}
-function closeResetModal(){ document.getElementById('resetModal').classList.remove('open'); }
-function updateResetUI(){
-  const t=document.querySelector('input[name="resetType"]:checked').value;
-  document.getElementById('resetOptDate').style.display  =t==='date'  ?'block':'none';
-  document.getElementById('resetOptOlder').style.display =t==='older' ?'block':'none';
-  document.getElementById('resetOptAll').style.display   =t==='all'   ?'block':'none';
-  if(t==='older') updateOlderCount();
-}
-function updateOlderCount(){
-  const days=parseInt(document.getElementById('resetDays').value)||0;
-  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-days);
-  const n=records.filter(r=>new Date(r.timestamp||r.date)<cutoff).length;
-  document.getElementById('resetOlderCount').textContent='該当件数: '+n+'件';
-}
-async function execReset(){
-  const pw=document.getElementById('resetPwInput').value;
-  if(pw!==ADMIN_PW){
-    document.getElementById('resetPwError').style.display='block';
-    document.getElementById('resetPwInput').select(); return;
-  }
-  const t=document.querySelector('input[name="resetType"]:checked').value;
-  let toDelete=[];
-  if(t==='date'){
-    const v=document.getElementById('resetDate').value;
-    if(!v){showToast('日付を選択してください',true);return;}
-    const ds=new Date(v).toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit'});
-    toDelete=records.filter(r=>r.date===ds);
-    if(!toDelete.length){showToast('指定日の打刻データがありません',true);return;}
-    if(!confirm(ds+'の打刻データ '+toDelete.length+'件を削除しますか？')) return;
-  } else if(t==='older'){
-    const days=parseInt(document.getElementById('resetDays').value)||0;
-    const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-days);
-    toDelete=records.filter(r=>new Date(r.timestamp||r.date)<cutoff);
-    if(!toDelete.length){showToast('該当するデータがありません',true);return;}
-    if(!confirm(days+'日以上前の打刻データ '+toDelete.length+'件を削除しますか？')) return;
-  } else {
-    if(!records.length){showToast('打刻データがありません',true);return;}
-    if(!confirm('全打刻データ '+records.length+'件をすべて削除しますか？\nこの操作は取り消せません。')) return;
-    toDelete=[...records];
-  }
-  for(const r of toDelete) await deleteRecordDB(r.id);
-  const ids=new Set(toDelete.map(r=>r.id));
-  records=records.filter(r=>!ids.has(r.id));
-  Object.keys(recentScans).forEach(k=>delete recentScans[k]);
-  updateLog(); updateStats(); renderRecords();
-  closeResetModal();
-  showToast(toDelete.length+'件の打刻データを削除しました');
-}
-
-// ══════════════════════════════
-// 打刻記録 バックアップ / 復元
-// ══════════════════════════════
-function backupRecords(){
-  if(!records.length){showToast('バックアップする打刻データがありません',true);return;}
-  const data={version:1,exportedAt:new Date().toISOString(),count:records.length,records};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  Object.assign(document.createElement('a'),{
-    href:URL.createObjectURL(blob),
-    download:'打刻記録バックアップ_'+todayStr().replace(/[/]/g,'-')+'.json'
-  }).click();
-  showToast('打刻記録'+records.length+'件をバックアップしました');
-}
-async function restoreRecords(ev){
-  const file=ev.target.files[0]; if(!file) return;
-  ev.target.value='';
-  const pw=prompt('打刻記録を復元します。\n管理者パスワードを入力してください:');
-  if(pw===null) return;
+async function resetToday(){
+  const today=todayStr();
+  const toDelete=records.filter(r=>r.date===today);
+  if(!toDelete.length){showToast('本日の打刻データはありません',true);return;}
+  const pw=prompt(`本日の打刻データ${toDelete.length}件を削除します。\n管理者パスワード:`);
+  if(pw===null)return;
   if(pw!==ADMIN_PW){showToast('パスワードが違います',true);return;}
-  try{
-    const data=JSON.parse(await file.text());
-    const imported=data.records||data;
-    if(!Array.isArray(imported)||!imported.length){showToast('有効な打刻データが見つかりません',true);return;}
-    const merge=confirm(imported.length+'件の打刻データが見つかりました。\n\n[OK] 追加（既存データ保持）\n[キャンセル] 上書き（全データ置換）');
-    if(merge){
-      const existIds=new Set(records.map(r=>r.id));
-      let added=0;
-      for(const r of imported){if(!existIds.has(r.id)){records.push(r);await saveRecord(r);added++;}}
-      records.sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
-      showToast(added+'件を追加しました（重複'+(imported.length-added)+'件スキップ）');
-    } else {
-      if(!confirm('現在の打刻データをすべて上書きします。よろしいですか？')) return;
-      await dbClear('records');
-      records=[];
-      for(const r of imported){records.push(r);await saveRecord(r);}
-      records.sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
-      showToast(imported.length+'件の打刻データで上書きしました');
-    }
-    updateLog();updateStats();renderRecords();
-  }catch(err){showToast('ファイルの読み込みに失敗しました: '+err.message,true);}
-}
-
-// ══════════════════════════════
-// CSV / Excel 出力モーダル JS
-// ══════════════════════════════
-function openCSVModal(){
-  const today=new Date().toISOString().split('T')[0];
-  document.getElementById('csvDateFrom').value=today;
-  document.getElementById('csvDateTo').value=today;
-  updateCSVCount();
-  document.getElementById('csvModal').classList.add('open');
-}
-function closeCSVModal(){ document.getElementById('csvModal').classList.remove('open'); }
-function updateCSVCount(){
-  document.getElementById('csvCount').textContent='対象件数: '+getCSVRecords().length+'件';
-}
-function getCSVRecords(){
-  const from=document.getElementById('csvDateFrom').value;
-  const to  =document.getElementById('csvDateTo').value;
-  return records.filter(r=>{
-    const d=new Date(r.timestamp||r.date+'T00:00:00');
-    const f=from?new Date(from+'T00:00:00'):null;
-    const t=to  ?new Date(to  +'T23:59:59'):null;
-    return (!f||d>=f)&&(!t||d<=t);
-  });
-}
-function execExport(){
-  const fmt=document.querySelector('input[name="csvFormat"]:checked').value;
-  fmt==='xlsx' ? execXLSX() : execCSV2();
-}
-function execCSV2(){
-  const filtered=getCSVRecords();
-  if(!filtered.length){showToast('該当する打刻データがありません',true);return;}
-  const from=document.getElementById('csvDateFrom').value;
-  const to  =document.getElementById('csvDateTo').value;
-  const BOM='\uFEFF';
-  const head='社員ID,氏名,部署,種別,認証方式,信頼度(%),日付,時刻\n';
-  const rows=filtered.map(r=>
-    r.empId+',"'+r.empName+'",'+r.dept+','+TYPE_LABEL[r.type]+','+(r.method==='face'?'顔認証':r.method==='manual'?'手動修正':'QRコード')+','+(r.confidence??'')+','+r.date+','+r.time
-  ).join('\n');
-  const blob=new Blob([BOM+head+rows],{type:'text/csv;charset=utf-8;'});
-  const fname=(from===to?'勤怠記録_'+from:'勤怠記録_'+from+'_'+to)+'.csv';
-  Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:fname}).click();
-  closeCSVModal();
-  showToast('CSVをエクスポートしました（'+filtered.length+'件）');
-}
-function execXLSX(){
-  const filtered=getCSVRecords();
-  if(!filtered.length){showToast('該当する打刻データがありません',true);return;}
-  const from=document.getElementById('csvDateFrom').value;
-  const to  =document.getElementById('csvDateTo').value;
-  const cols=['社員ID','氏名','部署','種別','認証方式','信頼度(%)','日付','時刻'];
-  const BOM='\uFEFF';
-  const head=cols.join('\t')+'\n';
-  const rows=filtered.map(r=>
-    [r.empId,r.empName,r.dept,TYPE_LABEL[r.type],
-     r.method==='face'?'顔認証':r.method==='manual'?'手動修正':'QRコード',
-     r.confidence??'',r.date,r.time].join('\t')
-  ).join('\n');
-  const blob=new Blob([BOM+head+rows],{type:'application/vnd.ms-excel;charset=utf-8;'});
-  const fname=(from===to?'勤怠記録_'+from:'勤怠記録_'+from+'_'+to)+'.xls';
-  Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:fname}).click();
-  closeCSVModal();
-  showToast('Excelファイルをエクスポートしました（'+filtered.length+'件）');
+  if(!confirm(`本日データ${toDelete.length}件を削除しますか？`))return;
+  for(const r of toDelete) await deleteRecordDB(r.id);
+  records=records.filter(r=>r.date!==today);
+  Object.keys(recentScans).forEach(k=>delete recentScans[k]);
+  updateLog();updateStats();renderRecords();
+  showToast(`本日データ${toDelete.length}件をリセットしました`);
 }
 
 // ══════════════════════════════
