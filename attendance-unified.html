@@ -943,8 +943,8 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
 // CONFIG
 // ══════════════════════════════
 const MODEL_URL          = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/';
-const MATCH_THRESHOLD    = 0.5;   // FaceMatcher距離閾値（小さいほど厳しい）
-const FACE_CONF_THRESHOLD= 0.65;  // 顔認証 信頼度70%以上で打刻
+const MATCH_THRESHOLD    = 0.6;   // FaceMatcher距離閾値（小さいほど厳しい）
+const FACE_CONF_THRESHOLD= 0.60;  // 顔認証 信頼度60%以上で打刻
 const SCAN_COOLDOWN_MS   = 6000; // 同一人物の再打刻クールダウン
 const QR_COOLDOWN_MS     = 6000;  // QR再スキャン無視時間
 const ADMIN_PW           = '0000';
@@ -1545,20 +1545,29 @@ function updateLog(){
 function updateStats(){
   const today=todayStr();
   const todayRec=records.filter(r=>r.date===today);
-  const inPpl =new Set(todayRec.filter(r=>r.type==='in').map(r=>r.empId));
-  const outPpl=new Set(todayRec.filter(r=>r.type==='out').map(r=>r.empId));
+
+  // 各社員の最後のステータスを取得（古い順→新しい順で上書き）
   const lastStatus={};
-  [...todayRec].reverse().forEach(r=>{if(!(r.empId in lastStatus))lastStatus[r.empId]=r.type;});
-  let present=0,away=0;
-  Object.values(lastStatus).forEach(t=>{
-    if(t==='in'||t==='back')present++;
-    if(t==='go')away++;
+  [...todayRec].reverse().forEach(r=>{
+    if(!(r.empId in lastStatus)) lastStatus[r.empId]=r.type;
   });
+
+  // 本日出勤：一度でも出勤打刻した人（何回打刻しても1人1カウント）
+  const inPpl=new Set(todayRec.filter(r=>r.type==='in').map(r=>r.empId));
+
+  // 本日退勤：最後のステータスが退勤の人
+  let outCount=0, present=0, away=0;
+  Object.values(lastStatus).forEach(t=>{
+    if(t==='out')  outCount++;
+    if(t==='in'||t==='back') present++;
+    if(t==='go')   away++;
+  });
+
   const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
-  set('statIn',inPpl.size);set('statIn2',inPpl.size);
-  set('statOut',outPpl.size);set('statOut2',outPpl.size);
-  set('statPresent',present);set('statPresent2',present);
-  set('statAway',away);set('statAway2',away);
+  set('statIn',inPpl.size);   set('statIn2',inPpl.size);
+  set('statOut',outCount);    set('statOut2',outCount);
+  set('statPresent',present); set('statPresent2',present);
+  set('statAway',away);       set('statAway2',away);
 }
 
 // ══════════════════════════════
