@@ -177,8 +177,8 @@ header{
 /* ══ SCAN LAYOUT ══ */
 .scan-layout{
   display:grid;
-  grid-template-columns:1fr 400px;
-  gap:20px;align-items:start;
+  grid-template-columns:1fr 360px;
+  gap:16px;align-items:start;
 }
 /* カメラパネル */
 .cam-panel{
@@ -569,9 +569,12 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 
 @media(max-width:1024px){
+  .scan-layout{grid-template-columns:1fr 340px;}
+  .cam-wrap{max-height:42vh;}
+}
+@media(max-width:800px){
   .scan-layout{grid-template-columns:1fr;}
   .right-col{display:none;}
-  .cam-wrap{max-height:42vh;}
 }
 @media(max-width:800px){
   .emp-add-grid{grid-template-columns:1fr 1fr;}
@@ -1383,7 +1386,7 @@ async function startFaceCamera(){
   }
   try{
     faceStream=await navigator.mediaDevices.getUserMedia(
-      {video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}}});
+      {video:{facingMode:'user',width:{ideal:640},height:{ideal:480}}});
     const video=document.getElementById('faceVideo');
     video.srcObject=faceStream;
     await new Promise(r=>video.onloadedmetadata=r);
@@ -1420,12 +1423,15 @@ async function faceScanLoop(){
     canvas.width=dispW;canvas.height=dispH;
     const dims=faceapi.matchDimensions(canvas,{width:dispW,height:dispH},true);
 
-    if(now-lastFaceDetectTime>500){
+    // タブレット向け: 推論間隔を800msに拡大、inputSize=320で軽量化
+    if(now-lastFaceDetectTime>800){
       lastFaceDetectTime=now;
       try{
-        const detections=await faceapi
-          .detectAllFaces(video, new faceapi.SsdMobilenetv1Options({minConfidence:0.5}))
-          .withFaceLandmarks().withFaceDescriptors();
+        // detectSingleFace に変更（detectAllFaces より大幅に軽い）
+        const singleDet=await faceapi
+          .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({minConfidence:0.5,inputSize:320}))
+          .withFaceLandmarks().withFaceDescriptor();
+        const detections=singleDet ? [singleDet] : [];
 
         const resized=faceapi.resizeResults(detections,dims);
         const ctx=canvas.getContext('2d');
