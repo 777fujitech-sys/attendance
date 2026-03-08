@@ -746,7 +746,7 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
     </select>
     <div class="spacer"></div>
     <button class="btn btn-danger" onclick="openResetModal()">🗑 データ削除</button>
-    <button class="btn btn-secondary" onclick="openCSVModal()">⬇ CSV出力</button>
+    <button class="btn btn-secondary" onclick="openCSVModal()">⬇ EXCEL出力</button>
   </div>
   <div class="table-wrap">
     <table>
@@ -999,12 +999,12 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
   </div>
 </div>
 
-<!-- ── CSV出力モーダル ── -->
+<!-- ── EXCEL/CSV出力モーダル ── -->
 <div class="modal-overlay" id="csvModal">
-  <div class="modal" style="max-width:420px">
-    <div class="modal-title">⬇ CSV出力</div>
-    <div class="modal-sub">出力する期間を指定してください</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-title">⬇ データ出力</div>
+    <div class="modal-sub">出力する期間と形式を指定してください</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       <div class="form-group">
         <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px">開始日</label>
         <input type="date" id="csvDateFrom" class="form-input" style="width:100%" onchange="updateCSVCount()"/>
@@ -1014,10 +1014,32 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
         <input type="date" id="csvDateTo" class="form-input" style="width:100%" onchange="updateCSVCount()"/>
       </div>
     </div>
+    <!-- 出力形式選択 -->
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:8px">出力形式</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <label id="fmtLabelExcel" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;cursor:pointer;border:2px solid var(--accent);background:rgba(0,229,255,0.07);transition:all .2s">
+          <input type="radio" name="exportFmt" value="excel" checked onchange="updateExportFmtUI()" style="display:none"/>
+          <span style="font-size:20px">📊</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--accent)">Excel形式</div>
+            <div style="font-size:10px;color:var(--muted)">.xlsx（Excelで開く）</div>
+          </div>
+        </label>
+        <label id="fmtLabelCSV" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;cursor:pointer;border:2px solid var(--border);background:transparent;transition:all .2s">
+          <input type="radio" name="exportFmt" value="csv" onchange="updateExportFmtUI()" style="display:none"/>
+          <span style="font-size:20px">📄</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text)">CSV形式</div>
+            <div style="font-size:10px;color:var(--muted)">.csv（汎用テキスト）</div>
+          </div>
+        </label>
+      </div>
+    </div>
     <div id="csvCount" style="font-size:12px;color:var(--muted);margin-bottom:14px;text-align:center"></div>
     <div class="modal-btns">
       <button class="btn btn-secondary" onclick="closeCSVModal()">キャンセル</button>
-      <button class="btn btn-primary" onclick="execCSV()">⬇ ダウンロード</button>
+      <button class="btn btn-primary" id="exportDlBtn" onclick="execExport()">📊 Excelダウンロード</button>
     </div>
   </div>
 </div>
@@ -1050,6 +1072,10 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
        </div>`;
   };
   document.head.appendChild(fa);
+
+  const xl=document.createElement('script');
+  xl.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+  document.head.appendChild(xl);
 
   const jq=document.createElement('script');
   jq.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
@@ -2255,16 +2281,44 @@ async function execReset(){
 }
 
 // ══════════════════════════════
-// CSV出力モーダル
+// EXCEL / CSV 出力モーダル
 // ══════════════════════════════
 function openCSVModal(){
   const today=new Date().toISOString().split('T')[0];
   document.getElementById('csvDateFrom').value=today;
   document.getElementById('csvDateTo').value=today;
+  // デフォルトをExcelに設定
+  document.querySelector('input[name="exportFmt"][value="excel"]').checked=true;
+  updateExportFmtUI();
   updateCSVCount();
   document.getElementById('csvModal').classList.add('open');
 }
 function closeCSVModal(){ document.getElementById('csvModal').classList.remove('open'); }
+
+function updateExportFmtUI(){
+  const fmt=document.querySelector('input[name="exportFmt"]:checked').value;
+  const lblExcel=document.getElementById('fmtLabelExcel');
+  const lblCSV  =document.getElementById('fmtLabelCSV');
+  const btn      =document.getElementById('exportDlBtn');
+  if(fmt==='excel'){
+    lblExcel.style.borderColor='var(--accent)';
+    lblExcel.style.background='rgba(0,229,255,0.07)';
+    lblExcel.querySelector('div>div:first-child').style.color='var(--accent)';
+    lblCSV.style.borderColor='var(--border)';
+    lblCSV.style.background='transparent';
+    lblCSV.querySelector('div>div:first-child').style.color='var(--text)';
+    btn.textContent='📊 Excelダウンロード';
+  } else {
+    lblCSV.style.borderColor='var(--purple)';
+    lblCSV.style.background='rgba(176,96,255,0.07)';
+    lblCSV.querySelector('div>div:first-child').style.color='var(--purple)';
+    lblExcel.style.borderColor='var(--border)';
+    lblExcel.style.background='transparent';
+    lblExcel.querySelector('div>div:first-child').style.color='var(--text)';
+    btn.textContent='📄 CSVダウンロード';
+  }
+}
+
 function updateCSVCount(){
   document.getElementById('csvCount').textContent='対象件数: '+getCSVRecords().length+'件';
 }
@@ -2278,6 +2332,59 @@ function getCSVRecords(){
     return (!f||d>=f)&&(!t||d<=t);
   });
 }
+
+function execExport(){
+  const fmt=document.querySelector('input[name="exportFmt"]:checked').value;
+  if(fmt==='excel') execExcel();
+  else execCSV();
+}
+
+function execExcel(){
+  const filtered=getCSVRecords();
+  if(!filtered.length){showToast('該当する打刻データがありません',true);return;}
+  if(!window.XLSX){showToast('Excelライブラリ読み込み中です。少し待ってから再試行してください',true);return;}
+  const from=document.getElementById('csvDateFrom').value;
+  const to  =document.getElementById('csvDateTo').value;
+
+  // ヘッダー定義
+  const headers=['社員ID','氏名','部署','種別','認証方式','信頼度(%)','日付','時刻'];
+  const rows=filtered.map(r=>[
+    r.empId, r.empName, r.dept,
+    TYPE_LABEL[r.type]||r.type,
+    r.method==='face'?'顔認証':r.method==='manual'?'手動修正':'QRコード',
+    r.confidence??'',
+    r.date, r.time
+  ]);
+
+  const wsData=[headers,...rows];
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+
+  // 列幅設定
+  ws['!cols']=[
+    {wch:10},{wch:14},{wch:12},{wch:8},{wch:10},{wch:10},{wch:14},{wch:10}
+  ];
+
+  // ヘッダー行スタイル（背景色・太字）
+  const range=XLSX.utils.decode_range(ws['!ref']);
+  for(let C=range.s.c;C<=range.e.c;C++){
+    const addr=XLSX.utils.encode_cell({r:0,c:C});
+    if(!ws[addr]) continue;
+    ws[addr].s={
+      font:{bold:true,color:{rgb:'FFFFFF'}},
+      fill:{fgColor:{rgb:'0D6EFD'}},
+      alignment:{horizontal:'center'}
+    };
+  }
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'勤怠記録');
+
+  const fname=(from===to?'勤怠記録_'+from:'勤怠記録_'+from+'_'+to)+'.xlsx';
+  XLSX.writeFile(wb,fname);
+  closeCSVModal();
+  showToast('Excelをエクスポートしました（'+filtered.length+'件）');
+}
+
 function execCSV(){
   const filtered=getCSVRecords();
   if(!filtered.length){showToast('該当する打刻データがありません',true);return;}
@@ -2291,7 +2398,7 @@ function execCSV(){
     +(r.confidence??'')+','+r.date+','+r.time
   ).join('\n');
   const blob=new Blob([BOM+head+rows],{type:'text/csv;charset=utf-8;'});
-  const fname=(from===to ? '勤怠記録_'+from : '勤怠記録_'+from+'_'+to)+'.csv';
+  const fname=(from===to?'勤怠記録_'+from:'勤怠記録_'+from+'_'+to)+'.csv';
   Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:fname}).click();
   closeCSVModal();
   showToast('CSVをエクスポートしました（'+filtered.length+'件）');
