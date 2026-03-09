@@ -1788,69 +1788,96 @@ async function faceScanLoop(){
 }
 
 // ══════════════════════════════
-// QRカメラ
+// QRカメラ（高速化版）
 // ══════════════════════════════
+
+// ① jsQR に渡すcanvasは小さく固定（400×300）→ 処理コスト 1/4 以下
+const QR_SCAN_W = 400;
+const QR_SCAN_H = 300;
+
+// ② streamは停止せずに保持 → 次回切替が瞬時
+let _qrVideoReady = false;
+
 async function startQRCamera(){
-  const dot=document.getElementById('liveDot');
-  const statusTxt=document.getElementById('camStatusTxt');
-  if(qrStream){
-    qrScanActive=true;
+  const dot       = document.getElementById('liveDot');
+  const statusTxt = document.getElementById('camStatusTxt');
+
+  // stream既存 → 即スキャン再開
+  if(qrStream && _qrVideoReady){
+    qrScanActive = true;
     dot.classList.remove('off');
-    statusTxt.textContent='スキャン待機中 – QRコードをかざしてください';
+    statusTxt.textContent = 'スキャン待機中 – QRコードをかざしてください';
     requestAnimationFrame(qrScanLoop);
     return;
   }
-  const constraints=[
-    {video:{facingMode:{ideal:'user'},width:{ideal:1280},height:{ideal:720}}},
+
+  // ③ カメラ解像度を落とす: 640×480 で十分（QR読み取り精度に影響しない）
+  const constraints = [
+    {video:{facingMode:{ideal:'user'}, width:{ideal:640}, height:{ideal:480}}},
     {video:{facingMode:'user'}},
     {video:true}
   ];
-  let stream=null;
+  let stream = null;
   for(const c of constraints){
-    try{stream=await navigator.mediaDevices.getUserMedia(c);break;}catch(_){}
+    try{ stream = await navigator.mediaDevices.getUserMedia(c); break; }catch(_){}
   }
   if(!stream){
     dot.classList.add('off');
-    statusTxt.textContent='カメラエラー: アクセスに失敗しました';
+    statusTxt.textContent = 'カメラエラー: アクセスに失敗しました';
     return;
   }
-  qrStream=stream;
-  const video=document.getElementById('qrVideo');
-  video.srcObject=stream;
-  video.onloadedmetadata=async()=>{
-    try{await video.play();}catch(_){}
+  qrStream = stream;
+  const video = document.getElementById('qrVideo');
+  video.srcObject = stream;
+
+  // ④ playing イベントで開始（loadedmetadata より確実に映像フレームあり）
+  const onReady = async () => {
     dot.classList.remove('off');
-    statusTxt.textContent='スキャン待機中 – QRコードをかざしてください';
-    qrScanActive=true;
+    statusTxt.textContent = 'スキャン待機中 – QRコードをかざしてください';
+    _qrVideoReady = true;
+    qrScanActive  = true;
     requestAnimationFrame(qrScanLoop);
   };
+  video.addEventListener('playing', onReady, {once:true});
+  try{ await video.play(); }catch(_){}
 }
 
 function stopQRCamera(){
-  qrScanActive=false;
-  if(qrStream){qrStream.getTracks().forEach(t=>t.stop());qrStream=null;}
+  qrScanActive = false;
+  // ② streamは停止しない（次回瞬時起動のため）
+  // ページ離脱時は beforeunload で解放する
 }
+
+// beforeunload でストリーム解放
+window.addEventListener('beforeunload', ()=>{
+  if(qrStream){ qrStream.getTracks().forEach(t=>t.stop()); qrStream=null; }
+});
+
+// スキャン用の小さなcanvasを使い回す
+const _qrScanCanvas = document.createElement('canvas');
+_qrScanCanvas.width  = QR_SCAN_W;
+_qrScanCanvas.height = QR_SCAN_H;
+const _qrScanCtx = _qrScanCanvas.getContext('2d', {willReadFrequently:true});
 
 function qrScanLoop(){
   if(!qrScanActive) return;
-  const video=document.getElementById('qrVideo');
-  const canvas=document.getElementById('qrScanCanvas');
-  if(video.readyState>=HTMLMediaElement.HAVE_ENOUGH_DATA&&video.videoWidth>0){
-    canvas.width=video.videoWidth;canvas.height=video.videoHeight;
-    const ctx=canvas.getContext('2d',{willReadFrequently:true});
-    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+  const video = document.getElementById('qrVideo');
+  if(video.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA && video.videoWidth > 0){
+    // ① 小さなcanvasに縮小描画 → getImageData コストを大幅削減
+    _qrScanCtx.drawImage(video, 0, 0, QR_SCAN_W, QR_SCAN_H);
     try{
-      const img=ctx.getImageData(0,0,canvas.width,canvas.height);
-      const code=window.jsQR&&jsQR(img.data,img.width,img.height,{inversionAttempts:'attemptBoth'});
-      if(code&&code.data){
-        const empId=code.data.trim().toUpperCase();
-        const now=Date.now();
-        if(!recentScans['qr_'+empId]||now-recentScans['qr_'+empId]>getQRCooldown()){
-          recentScans['qr_'+empId]=now;
-          if(selectedMode&&!recognizing){
-            recognizing=true;
+      const img  = _qrScanCtx.getImageData(0, 0, QR_SCAN_W, QR_SCAN_H);
+      // ③ 反転試行を dontInvert に（通常QRは黒地白背景なので十分）
+      const code = window.jsQR && jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
+      if(code && code.data){
+        const empId = code.data.trim().toUpperCase();
+        const now   = Date.now();
+        if(!recentScans['qr_'+empId] || now-recentScans['qr_'+empId] > getQRCooldown()){
+          recentScans['qr_'+empId] = now;
+          if(selectedMode && !recognizing){
+            recognizing = true;
             processQR(empId);
-            setTimeout(()=>cancelMode(),3000);
+            setTimeout(()=>cancelMode(), 3000);
           }
         }
       }
