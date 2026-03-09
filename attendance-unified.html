@@ -473,9 +473,6 @@ thead th{
 thead th:hover{color:var(--text);}
 thead th.sort-asc::after{content:' ▲';font-size:9px;}
 thead th.sort-desc::after{content:' ▼';font-size:9px;}
-thead th.sort-sub{color:var(--accent)!important;opacity:.75;}
-thead th.sort-sub.sort-asc::after{content:' ▲₂';font-size:9px;}
-thead th.sort-sub.sort-desc::after{content:' ▼₂';font-size:9px;}
 tbody tr{border-bottom:1px solid rgba(26,48,80,.4);transition:background .15s;}
 tbody tr:hover{background:var(--surface2);}
 tbody td{padding:10px 14px;font-size:13px;}
@@ -787,6 +784,7 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
           <th onclick="setSort('confidence')" id="th-confidence">信頼度</th>
           <th onclick="setSort('date')"    id="th-date">日付</th>
           <th onclick="setSort('time')"    id="th-time">時刻</th>
+          <th onclick="setSort('empId_time')" id="th-empId_time" style="white-space:nowrap">ID＋時間↑</th>
           <th style="cursor:default;width:80px">操作</th>
         </tr>
       </thead>
@@ -921,6 +919,30 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
     <div class="settings-section-title">🔊 打刻サウンド</div>
     <p style="font-size:11px;color:var(--muted);margin-bottom:14px;">MP3・WAV・OGG等に対応。設定した音はブラウザ内に保存されます。<br>▶ 試聴 ／ 📁 カスタム音に変更 ／ ✕ デフォルト音に戻す</p>
     <div id="soundCardGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    </div>
+
+    <!-- レア音 -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border2);">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--accent2);margin-bottom:10px;">🎲 レア音</div>
+      <div class="settings-row">
+        <div class="settings-label">
+          <span class="settings-label-main">発生確率</span>
+          <span class="settings-label-sub">打刻成功時にこの確率でレア音が鳴ります（0=無効）</span>
+        </div>
+        <div class="settings-control" style="display:flex;align-items:center;gap:8px;">
+          <input type="range" id="cfg-rareSoundProb" min="0" max="50" step="5" value="10"
+            style="width:100px;accent-color:var(--accent);"
+            oninput="document.getElementById('cfg-rareSoundProbVal').textContent=+this.value===0?'無効':this.value+'%'">
+          <span id="cfg-rareSoundProbVal" style="font-family:var(--mono);font-size:13px;color:var(--accent2);min-width:40px;text-align:right;">10%</span>
+        </div>
+      </div>
+      <div class="settings-row" style="border-bottom:none;padding-bottom:0;align-items:flex-start;">
+        <div class="settings-label">
+          <span class="settings-label-main">レア音ファイル（最大3スロット）</span>
+          <span class="settings-label-sub">設定時はこのファイルを再生。未設定なら他の打刻種別の音を流用します。</span>
+        </div>
+        <div id="rareSoundSlots" style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;min-width:260px;"></div>
+      </div>
     </div>
   </div>
 
@@ -2270,63 +2292,38 @@ function closeCaptureModal(){
 // ══════════════════════════════
 // 打刻記録ページ
 // ══════════════════════════════
-// sortKey: 現在の主キー  sortDir: 主キーの方向
-// sortSubKey: 複合時の第2キー（null = 単独ソート）
-let sortKey='timestamp', sortDir='desc', sortSubKey=null, sortSubDir='asc';
+let sortKey='timestamp', sortDir='desc';
 const SORT_TYPE_ORDER={in:0,go:1,back:2,out:3};
 
 function setSort(key){
-  // 複合ソートモード: 社員IDがアクティブな状態で時刻をクリック
-  if(key==='time' && sortKey==='empId'){
-    if(sortSubKey==='time'){
-      // 時刻方向トグル
-      sortSubDir = sortSubDir==='asc'?'desc':'asc';
-    } else {
-      sortSubKey = 'time';
-      sortSubDir = 'asc';
-    }
+  if(key==='empId_time'){
+    // 複合ソートは常に固定順（ID昇順→時刻昇順）、再クリックで解除してデフォルトに戻す
+    if(sortKey==='empId_time'){ sortKey='timestamp'; sortDir='desc'; }
+    else{ sortKey='empId_time'; sortDir='asc'; }
+  } else if(sortKey===key){
+    sortDir=sortDir==='asc'?'desc':'asc';
   } else {
-    // 通常ソート（複合解除）
-    sortSubKey = null;
-    if(sortKey===key){
-      sortDir = sortDir==='asc'?'desc':'asc';
-    } else {
-      sortKey = key;
-      sortDir = (key==='empName'||key==='empId') ? 'asc' : 'desc';
-    }
+    sortKey=key; sortDir=key==='empName'||key==='empId'?'asc':'desc';
   }
   renderRecords();
 }
-
 function updateSortIndicators(){
-  ['empId','empName','dept','type','method','confidence','date','time'].forEach(k=>{
+  ['empId','empName','dept','type','method','confidence','date','time','empId_time'].forEach(k=>{
     const th=document.getElementById('th-'+k);
-    if(!th) return;
-    if(k==='empId' && sortKey==='empId'){
-      th.className = 'sort-'+sortDir;
-    } else if(k==='time' && sortKey==='empId' && sortSubKey==='time'){
-      // 複合ソート中は時刻ヘッダーも強調（複合マーク付き）
-      th.className = 'sort-'+sortSubDir+' sort-sub';
-    } else if(k===sortKey && !sortSubKey){
-      th.className = 'sort-'+sortDir;
-    } else {
-      th.className = '';
-    }
+    if(!th)return;
+    th.className=sortKey===k?('sort-'+sortDir):'';
   });
 }
-
 function sortRecords(arr){
   return [...arr].sort((a,b)=>{
-    // 複合ソート: 社員ID → 時刻
-    if(sortKey==='empId' && sortSubKey==='time'){
-      const idCmp = (a.empId||'').localeCompare(b.empId||'', 'ja');
-      if(idCmp!==0) return sortDir==='asc' ? idCmp : -idCmp;
+    // 複合ソート: 社員ID昇順 → 時刻昇順
+    if(sortKey==='empId_time'){
+      const idCmp=(a.empId||'').localeCompare(b.empId||'','ja');
+      if(idCmp!==0) return idCmp;
       const ta=(a.date||'')+(a.time||'');
       const tb=(b.date||'')+(b.time||'');
-      const tCmp = ta<tb?-1:ta>tb?1:0;
-      return sortSubDir==='asc' ? tCmp : -tCmp;
+      return ta<tb?-1:ta>tb?1:0;
     }
-    // 単独ソート
     let va,vb;
     if(sortKey==='type'){va=SORT_TYPE_ORDER[a.type]??99;vb=SORT_TYPE_ORDER[b.type]??99;}
     else if(sortKey==='confidence'){va=a.confidence??-1;vb=b.confidence??-1;}
@@ -2791,6 +2788,7 @@ document.addEventListener('click',()=>{try{getACtx();}catch(_){}},{once:true});
 const customSounds = Object.fromEntries(
   SOUND_DEFS.map(d => [d.key, d.multi ? new Array(MULTI_SLOTS).fill(null) : null])
 );
+customSounds['rare'] = new Array(MULTI_SLOTS).fill(null); // レア音専用
 
 // ランダム再生（multi）or 単独再生
 async function playCustomSound(key){
@@ -2814,10 +2812,31 @@ async function playCustomSound(key){
   }catch(e){ return false; }
 }
 
+const STAMP_KEYS = ['in','go','back','out'];
+
 async function playSound(key){
   try{
-    const played = await playCustomSound(key);
-    if(!played){ SOUND_DEFS.find(d=>d.key===key)?.tone(); }
+    let playKey = key;
+    if(STAMP_KEYS.includes(key)){
+      const prob = appSettings?.rareSoundProb ?? 10;
+      if(prob > 0 && Math.random() * 100 < prob){
+        // レア音ファイルが設定されていればそれを使う
+        const rareBufs = customSounds['rare'].filter(b => b != null);
+        if(rareBufs.length > 0){
+          const buf = rareBufs[Math.floor(Math.random()*rareBufs.length)];
+          const ctx = getACtx();
+          const decoded = await ctx.decodeAudioData(buf.slice(0));
+          const src = ctx.createBufferSource();
+          src.buffer = decoded; src.connect(ctx.destination); src.start(0);
+          return;
+        }
+        // 未設定なら他の打刻種別の音を流用
+        const others = STAMP_KEYS.filter(k => k !== key);
+        playKey = others[Math.floor(Math.random()*others.length)];
+      }
+    }
+    const played = await playCustomSound(playKey);
+    if(!played){ SOUND_DEFS.find(d=>d.key===playKey)?.tone(); }
   }catch(_){}
 }
 
@@ -2870,6 +2889,16 @@ async function loadSoundsFromDB(){
         }
       }
       updateSoundStatus(def.key);
+    }
+    // レア音スロット読み込み
+    for(let s=0; s<MULTI_SLOTS; s++){
+      try{
+        const rBuf = await new Promise((res,rej)=>{
+          const req=db.transaction(SND_STORE,'readonly').objectStore(SND_STORE).get('rare_'+s);
+          req.onsuccess=e=>res(e.target.result||null); req.onerror=e=>rej(e.target.error);
+        });
+        if(rBuf) customSounds['rare'][s]=rBuf;
+      }catch(_){}
     }
   }catch(e){}
 }
@@ -2945,6 +2974,45 @@ function updateSoundStatus(key){
   }
 }
 
+// ── レア音スロットUI ───────────────────────────
+function renderRareSoundSlots(){
+  const c=document.getElementById('rareSoundSlots'); if(!c) return;
+  c.innerHTML = Array.from({length:MULTI_SLOTS},(_,s)=>{
+    const has=!!customSounds['rare'][s];
+    return `<div style="display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border2);border-radius:7px;padding:7px 10px;">
+      <span style="font-size:11px;font-weight:700;color:var(--accent2);font-family:var(--mono);flex-shrink:0;">SLOT ${s+1}</span>
+      <span style="font-size:10px;color:${has?'var(--green)':'var(--muted)'};flex:1;">${has?'✓ 設定済み':'未設定'}</span>
+      <label class="btn btn-secondary btn-sm" style="cursor:pointer;padding:4px 8px;font-size:11px;">
+        📁<input type="file" accept="audio/*" style="display:none" onchange="loadRareSound(${s},this)">
+      </label>
+      <button class="btn btn-sm" onclick="previewRareSound(${s})" style="padding:4px 8px;font-size:11px;background:rgba(0,229,255,.1);border:1px solid var(--accent2);color:var(--accent2);">▶</button>
+      <button class="btn btn-sm" onclick="clearRareSound(${s})" style="padding:4px 8px;font-size:11px;background:rgba(255,51,85,.1);border:1px solid var(--red);color:var(--red);">✕</button>
+    </div>`;
+  }).join('');
+}
+function loadRareSound(slot,input){
+  const file=input.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=async e=>{
+    customSounds['rare'][slot]=e.target.result;
+    await saveSoundToDB('rare',slot,e.target.result);
+    renderRareSoundSlots();
+    showToast('🎲 レア音 SLOT'+(slot+1)+' を設定しました');
+  };
+  r.readAsArrayBuffer(file); input.value='';
+}
+function previewRareSound(slot){
+  const buf=customSounds['rare'][slot];
+  if(!buf){showToast('音が設定されていません',true);return;}
+  (async()=>{try{const ctx=getACtx(),d=await ctx.decodeAudioData(buf.slice(0)),s=ctx.createBufferSource();s.buffer=d;s.connect(ctx.destination);s.start(0);}catch(_){}})();
+}
+async function clearRareSound(slot){
+  customSounds['rare'][slot]=null;
+  await deleteSoundFromDB('rare',slot);
+  renderRareSoundSlots();
+  showToast('レア音 SLOT'+(slot+1)+' をクリアしました');
+}
+
 // サウンドカードを動的生成
 function renderSoundCards(){
   const grid=document.getElementById('soundCardGrid'); if(!grid) return;
@@ -3016,7 +3084,8 @@ const defaultSettings={
   showDept:true, showId:true, showFaceStatus:true,
   timeout:60, clockFmt:'full', resetDelay:3,
   theme:{accent:'#00e5ff',accent2:'#0099bb'},
-  adminPw:'0000'
+  adminPw:'0000',
+  rareSoundProb:10
 };
 let appSettings={...defaultSettings};
 
@@ -3052,6 +3121,12 @@ function applySettingsToUI(){
   document.getElementById('cfg-clockFmt').value=s.clockFmt;
   document.getElementById('cfg-resetDelay').value=s.resetDelay;
   if(s.theme) setTheme(s.theme.accent,s.theme.accent2,true);
+  const _rsp=document.getElementById('cfg-rareSoundProb');
+  if(_rsp){
+    _rsp.value=s.rareSoundProb??10;
+    document.getElementById('cfg-rareSoundProbVal').textContent=(+(s.rareSoundProb??10))===0?'無効':(s.rareSoundProb??10)+'%';
+  }
+  renderRareSoundSlots();
 }
 
 function applySettingsToApp(){
@@ -3081,6 +3156,7 @@ function saveSettings(){
   s.timeout=parseInt(document.getElementById('cfg-timeout').value)||0;
   s.clockFmt=document.getElementById('cfg-clockFmt').value;
   s.resetDelay=parseInt(document.getElementById('cfg-resetDelay').value)||3;
+  s.rareSoundProb=+(document.getElementById('cfg-rareSoundProb')?.value??10);
   // CONFIGに動的反映
   window._SCAN_COOLDOWN_MS=s.scanCooldown*1000;
   window._QR_COOLDOWN_MS=s.qrCooldown*1000;
