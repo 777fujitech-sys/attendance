@@ -586,6 +586,29 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
   .scan-progress{padding:6px 12px;font-size:12px;min-height:40px;}
   .cancel-btn{padding:4px 10px;font-size:11px;}
 }
+/* ── 設定ページ ── */
+.settings-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px;margin-bottom:16px;}
+.settings-section-title{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--accent2);text-transform:uppercase;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border2);}
+.settings-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid rgba(26,48,72,.5);}
+.settings-row:last-child{border-bottom:none;padding-bottom:0;}
+.settings-row:first-of-type{padding-top:0;}
+.settings-label{flex:1;min-width:0;}
+.settings-label-main{display:block;font-size:13px;font-weight:500;line-height:1.3;}
+.settings-label-sub{display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4;}
+.settings-control{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.settings-select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;font-family:var(--body);cursor:pointer;}
+.settings-select:focus{outline:none;border-color:var(--accent);}
+.settings-input{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;font-family:var(--mono);}
+.settings-input:focus{outline:none;border-color:var(--accent);}
+.settings-unit{font-size:12px;color:var(--muted);}
+/* サウンドカード */
+.sound-card{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;}
+.sound-card-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;font-weight:600;}
+.sound-status{margin-left:auto;font-size:10px;color:var(--muted);}
+.sound-card-btns{display:flex;gap:6px;flex-wrap:wrap;}
+/* テーマカラーボタン */
+.theme-btn{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:.15s;}
+.theme-btn:hover{border-color:var(--text);transform:scale(1.15);}
 </style>
 </head>
 <body>
@@ -612,8 +635,9 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
 
 <div class="tabs">
   <div class="tab active" onclick="switchTab('scan')">🎯 打刻</div>
-  <div class="tab" onclick="switchTab('records')">📋 打刻記録</div>
+  <div class="tab" onclick="switchTab('records')">📋 打刻管理</div>
   <div class="tab" onclick="switchTab('employees')">👤 社員管理</div>
+  <div class="tab" onclick="switchTab('settings')">⚙️ 設定</div>
 </div>
 
 <div class="main">
@@ -821,6 +845,245 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
     </div>
   </div>
   <div class="emp-grid" id="empGrid"></div>
+</div>
+
+<!-- ── SETTINGS PAGE ── -->
+<div id="page-settings" class="page">
+<div style="max-width:680px;margin:0 auto;padding:8px 0 40px;">
+
+  <!-- ───── 打刻設定 ───── -->
+  <div class="settings-section">
+    <div class="settings-section-title">🎯 打刻</div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">デフォルト認証方式</span>
+        <span class="settings-label-sub">起動時の認証モード</span>
+      </div>
+      <div class="settings-control">
+        <select id="cfg-authMode" class="settings-select">
+          <option value="face">顔認証</option>
+          <option value="qr">QRコード</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">再打刻クールダウン（顔認証）</span>
+        <span class="settings-label-sub">同一人物の連続打刻を防ぐ待機時間</span>
+      </div>
+      <div class="settings-control" style="display:flex;align-items:center;gap:8px;">
+        <input type="number" id="cfg-scanCooldown" class="settings-input" value="6" min="1" max="60" style="width:70px;">
+        <span class="settings-unit">秒</span>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">再スキャン待機（QR）</span>
+        <span class="settings-label-sub">QRコードの連続読み取り防止</span>
+      </div>
+      <div class="settings-control" style="display:flex;align-items:center;gap:8px;">
+        <input type="number" id="cfg-qrCooldown" class="settings-input" value="6" min="1" max="60" style="width:70px;">
+        <span class="settings-unit">秒</span>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">顔認証　信頼度しきい値</span>
+        <span class="settings-label-sub">この%以上で打刻確定（高いほど厳格）</span>
+      </div>
+      <div class="settings-control" style="display:flex;align-items:center;gap:8px;">
+        <input type="range" id="cfg-faceConf" min="40" max="90" value="60" step="5" style="width:110px;accent-color:var(--accent);" oninput="document.getElementById('cfg-faceConfVal').textContent=this.value+'%'">
+        <span id="cfg-faceConfVal" style="font-family:var(--mono);font-size:13px;color:var(--accent2);min-width:38px;">60%</span>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">顔マッチング距離しきい値</span>
+        <span class="settings-label-sub">小さいほど厳格（推奨: 0.4〜0.6）</span>
+      </div>
+      <div class="settings-control" style="display:flex;align-items:center;gap:8px;">
+        <input type="range" id="cfg-matchThreshold" min="0.3" max="0.7" value="0.5" step="0.05" style="width:110px;accent-color:var(--accent);" oninput="document.getElementById('cfg-matchThresholdVal').textContent=parseFloat(this.value).toFixed(2)">
+        <span id="cfg-matchThresholdVal" style="font-family:var(--mono);font-size:13px;color:var(--accent2);min-width:38px;">0.50</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── 打刻サウンド設定 ───── -->
+  <div class="settings-section">
+    <div class="settings-section-title">🔊 打刻サウンド</div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:14px;">MP3・WAV・OGG等に対応。設定した音はブラウザ内に保存されます。<br>▶ 試聴 ／ 📁 カスタム音に変更 ／ ✕ デフォルト音に戻す</p>
+    <div id="soundCardGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    </div>
+  </div>
+
+  <!-- ───── 打刻管理設定 ───── -->
+  <div class="settings-section">
+    <div class="settings-section-title">📋 打刻管理</div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">打刻記録の自動削除</span>
+        <span class="settings-label-sub">指定日数より古いデータを自動的に削除</span>
+      </div>
+      <div class="settings-control" style="display:flex;align-items:center;gap:8px;">
+        <select id="cfg-autoDelete" class="settings-select" style="width:130px;">
+          <option value="0">削除しない</option>
+          <option value="30">30日後</option>
+          <option value="60">60日後</option>
+          <option value="90">90日後</option>
+          <option value="180">180日後</option>
+          <option value="365">1年後</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">打刻一覧のデフォルト表示件数</span>
+        <span class="settings-label-sub">打刻管理タブで最初に表示する件数</span>
+      </div>
+      <div class="settings-control">
+        <select id="cfg-recordsPerPage" class="settings-select" style="width:100px;">
+          <option value="30">30件</option>
+          <option value="50">50件</option>
+          <option value="100">100件</option>
+          <option value="0">全件</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">CSV/Excelの文字コード</span>
+        <span class="settings-label-sub">エクスポートファイルの文字コード</span>
+      </div>
+      <div class="settings-control">
+        <select id="cfg-encoding" class="settings-select" style="width:130px;">
+          <option value="utf8bom">UTF-8 (BOM付き)</option>
+          <option value="utf8">UTF-8</option>
+          <option value="sjis">Shift-JIS</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── 社員管理設定 ───── -->
+  <div class="settings-section">
+    <div class="settings-section-title">👤 社員管理</div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">部署リスト</span>
+        <span class="settings-label-sub">1行に1つ入力。社員登録時のプルダウンに反映されます。</span>
+      </div>
+      <div class="settings-control" style="flex-direction:column;align-items:flex-start;gap:6px;">
+        <textarea id="cfg-depts" rows="5" style="width:200px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:12px;resize:vertical;line-height:1.7;">営業課
+資材課
+総務課
+技術開発課
+製造課</textarea>
+        <button class="btn btn-secondary btn-sm" onclick="applyDepts()" style="font-size:11px;">✓ 反映</button>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">社員カードの表示情報</span>
+        <span class="settings-label-sub">社員一覧に表示する情報</span>
+      </div>
+      <div class="settings-control" style="flex-direction:column;align-items:flex-start;gap:6px;">
+        <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="cfg-showDept" checked style="accent-color:var(--accent);"> 部署</label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="cfg-showId" checked style="accent-color:var(--accent);"> 社員ID</label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="cfg-showFaceStatus" checked style="accent-color:var(--accent);"> 顔認証状態</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── その他設定 ───── -->
+  <div class="settings-section">
+    <div class="settings-section-title">🛠 その他</div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">管理者パスワード</span>
+        <span class="settings-label-sub">社員編集・削除・打刻修正に必要</span>
+      </div>
+      <div class="settings-control" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <input type="password" id="cfg-adminPwOld" class="settings-input" placeholder="現在のPW" style="width:120px;">
+        <input type="password" id="cfg-adminPwNew" class="settings-input" placeholder="新しいPW" style="width:120px;">
+        <button class="btn btn-secondary btn-sm" onclick="changeAdminPw()" style="font-size:11px;">変更</button>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">画面のタイムアウト</span>
+        <span class="settings-label-sub">操作がない時に打刻画面へ自動で戻る</span>
+      </div>
+      <div class="settings-control" style="display:flex;align-items:center;gap:8px;">
+        <select id="cfg-timeout" class="settings-select" style="width:130px;">
+          <option value="0">無効</option>
+          <option value="30">30秒後</option>
+          <option value="60" selected>1分後</option>
+          <option value="180">3分後</option>
+          <option value="300">5分後</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">時計の表示フォーマット</span>
+        <span class="settings-label-sub">ヘッダーの時計表示形式</span>
+      </div>
+      <div class="settings-control">
+        <select id="cfg-clockFmt" class="settings-select" style="width:180px;">
+          <option value="full">YYYY年MM月DD日(曜) HH:MM:SS</option>
+          <option value="short">MM/DD(曜) HH:MM:SS</option>
+          <option value="time">HH:MM:SS のみ</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">打刻完了後の自動リセット</span>
+        <span class="settings-label-sub">打刻成功後、N秒で打刻画面に戻る</span>
+      </div>
+      <div class="settings-control" style="display:flex;align-items:center;gap:8px;">
+        <input type="number" id="cfg-resetDelay" class="settings-input" value="3" min="1" max="30" style="width:70px;">
+        <span class="settings-unit">秒</span>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">テーマカラー</span>
+        <span class="settings-label-sub">アクセントカラーを変更</span>
+      </div>
+      <div class="settings-control" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="theme-btn" style="background:#00e5ff;" onclick="setTheme('#00e5ff','#0099bb')" title="シアン（デフォルト）"></button>
+        <button class="theme-btn" style="background:#3b82f6;" onclick="setTheme('#3b82f6','#60a5fa')" title="ブルー"></button>
+        <button class="theme-btn" style="background:#10b981;" onclick="setTheme('#10b981','#34d399')" title="グリーン"></button>
+        <button class="theme-btn" style="background:#f59e0b;" onclick="setTheme('#f59e0b','#fbbf24')" title="アンバー"></button>
+        <button class="theme-btn" style="background:#8b5cf6;" onclick="setTheme('#8b5cf6','#a78bfa')" title="パープル"></button>
+        <button class="theme-btn" style="background:#ef4444;" onclick="setTheme('#ef4444','#f87171')" title="レッド"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 保存ボタン -->
+  <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">
+    <button class="btn btn-secondary" onclick="resetSettings()" style="font-size:12px;">↺ 初期値に戻す</button>
+    <button class="btn btn-primary" onclick="saveSettings()" style="font-size:13px;">💾 設定を保存</button>
+  </div>
+
+</div>
 </div>
 
 </div><!-- /main -->
@@ -1090,11 +1353,19 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
 // CONFIG
 // ══════════════════════════════
 const MODEL_URL          = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/';
-const MATCH_THRESHOLD    = 0.5;   // FaceMatcher距離閾値（小さいほど厳しい）
-const FACE_CONF_THRESHOLD= 0.60;  // 顔認証 信頼度60%以上で打刻
-const SCAN_COOLDOWN_MS   = 6000; // 同一人物の再打刻クールダウン
-const QR_COOLDOWN_MS     = 6000;  // QR再スキャン無視時間
-const ADMIN_PW           = '0000';
+const MATCH_THRESHOLD    = 0.5;   // FaceMatcher距離閾値（小さいほど厳しい）※設定で上書き
+const FACE_CONF_THRESHOLD= 0.60;  // 顔認証 信頼度60%以上で打刻 ※設定で上書き
+const SCAN_COOLDOWN_MS   = 6000; // 同一人物の再打刻クールダウン ※設定で上書き
+const QR_COOLDOWN_MS     = 6000;  // QR再スキャン無視時間 ※設定で上書き
+const ADMIN_PW           = '0000'; // ※設定で上書き
+// 動的設定ゲッター（設定ページで変更された値を優先）
+function getCfg(key,def){ return window['_'+key]!==undefined?window['_'+key]:def; }
+function getScanCooldown(){ return getCfg('SCAN_COOLDOWN_MS',SCAN_COOLDOWN_MS); }
+function getQRCooldown()  { return getCfg('QR_COOLDOWN_MS',QR_COOLDOWN_MS); }
+function getFaceConf()    { return getCfg('FACE_CONF_THRESHOLD',FACE_CONF_THRESHOLD); }
+function getMatchThreshold(){ return getCfg('MATCH_THRESHOLD',MATCH_THRESHOLD); }
+function getAdminPw()     { return getCfg('ADMIN_PW',ADMIN_PW); }
+
 
 const TYPE_LABEL = {in:'出勤',out:'退勤',go:'外出',back:'戻り'};
 const TYPE_ICON  = {in:'✅',out:'👋',go:'🚶',back:'🏃'};
@@ -1257,11 +1528,12 @@ setInterval(tick,1000);tick();
 // ══════════════════════════════
 function switchTab(name){
   document.querySelectorAll('.tab').forEach((t,i)=>
-    t.classList.toggle('active',['scan','records','employees'][i]===name));
+    t.classList.toggle('active',['scan','records','employees','settings'][i]===name));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   if(name==='records')   renderRecords();
   if(name==='employees') renderEmployees();
+  if(name==='settings')  renderSoundCards();
 }
 
 // ══════════════════════════════
@@ -1330,7 +1602,7 @@ async function buildMatcher(){
     }
   }
   faceMatcher = labeledDescriptors.length>0
-    ? new faceapi.FaceMatcher(labeledDescriptors, MATCH_THRESHOLD) : null;
+    ? new faceapi.FaceMatcher(labeledDescriptors, getMatchThreshold()) : null;
 }
 
 function loadImage(src){
@@ -1486,7 +1758,7 @@ async function faceScanLoop(){
             progBar.style.width=pct+'%';
             progPct.textContent=pct+'%';
 
-            if(match.label!=='unknown' && conf>=FACE_CONF_THRESHOLD){
+            if(match.label!=='unknown' && conf>=getFaceConf()){
               progTxt.textContent='認証中... '+pct+'%';
               if(!recognizing){
                 recognizing=true;
@@ -1494,10 +1766,11 @@ async function faceScanLoop(){
                 setTimeout(()=>cancelMode(), 3000);
               }
             } else {
-              progTxt.textContent=match.label==='unknown'?`未登録の顔です`:`照合中... (${pct}% / 必要:${Math.round(FACE_CONF_THRESHOLD*100)}%)`;
-              if(pct<Math.round(FACE_CONF_THRESHOLD*100)){
+              progTxt.textContent=match.label==='unknown'?`未登録の顔です`:`照合中... (${pct}% / 必要:${Math.round(getFaceConf()*100)}%)`;
+              if(pct<Math.round(getFaceConf()*100)){
                 progBar.style.width='0%';progPct.textContent='0%';
               }
+              if(match.label==='unknown') playAuthFailSound();
             }
           } else {
             progTxt.textContent='顔が未登録です（社員管理タブで登録してください）';
@@ -1572,7 +1845,7 @@ function qrScanLoop(){
       if(code&&code.data){
         const empId=code.data.trim().toUpperCase();
         const now=Date.now();
-        if(!recentScans['qr_'+empId]||now-recentScans['qr_'+empId]>QR_COOLDOWN_MS){
+        if(!recentScans['qr_'+empId]||now-recentScans['qr_'+empId]>getQRCooldown()){
           recentScans['qr_'+empId]=now;
           if(selectedMode&&!recognizing){
             recognizing=true;
@@ -1610,8 +1883,9 @@ async function processAttendance(empId, confidence, type, method){
 
   // クールダウン
   const now=Date.now();
-  if(recentScans[empId]&&now-recentScans[empId]<SCAN_COOLDOWN_MS){
+  if(recentScans[empId]&&now-recentScans[empId]<getScanCooldown()){
     showToast(`${emp.name}さんは連続打刻の制限中です`,true);
+    playSound('duplicate');
     return;
   }
   recentScans[empId]=now;
@@ -1620,10 +1894,12 @@ async function processAttendance(empId, confidence, type, method){
   const _today=todayStr();
   if(type==='in' && hasTypeOnDate(empId,'in',_today)){
     showToast(`${emp.name}さんは本日すでに出勤が記録されています`,true);
+    playSound('duplicate');
     return;
   }
   if(type==='out' && hasTypeOnDate(empId,'out',_today)){
     showToast(`${emp.name}さんは本日すでに退勤が記録されています`,true);
+    playSound('duplicate');
     return;
   }
 
@@ -1779,6 +2055,7 @@ async function addEmployee(){
   await buildMatcher();
   renderEmployees();
   showToast(`${name}さんを登録しました${tempFaceDataURLs.length>0?`（顔写真${tempFaceDataURLs.length}枚）`:''}`);
+  playSound('empAdded');
 }
 
 async function deleteEmployee(id){
@@ -2063,7 +2340,7 @@ async function restoreEmployees(e){
   e.target.value='';
   const pw=prompt('社員情報を復元します。\n管理者パスワードを入力してください:');
   if(pw===null)return;
-  if(pw!==ADMIN_PW){showToast('パスワードが違います',true);return;}
+  if(pw!==getAdminPw()){showToast('パスワードが違います',true);return;}
   try{
     const text=await file.text();
     const data=JSON.parse(text);
@@ -2137,7 +2414,7 @@ function openEditModal(recordId){
 
 function verifyEditPw(){
   const pw=document.getElementById('editPwInput').value;
-  if(pw!==ADMIN_PW){
+  if(pw!==getAdminPw()){
     document.getElementById('editPwError').style.display='block';
     document.getElementById('editPwInput').select();
     return;
@@ -2193,6 +2470,7 @@ async function saveEditRecord(){
   renderRecords();updateLog();updateStats();
   closeEditModal();
   showToast(`${records[idx].empName}さんの記録を修正しました`);
+  playSound('recordOp');
 }
 
 async function deleteRecord(){
@@ -2206,6 +2484,7 @@ async function deleteRecord(){
   renderRecords();updateLog();updateStats();
   closeEditModal();
   showToast('記録を削除しました');
+  playSound('recordOp');
 }
 
 function closeEditModal(){
@@ -2246,7 +2525,7 @@ function updateOlderCount(){
 }
 async function execReset(){
   const pw=document.getElementById('resetPwInput').value;
-  if(pw!==ADMIN_PW){
+  if(pw!==getAdminPw()){
     document.getElementById('resetPwError').style.display='block';
     document.getElementById('resetPwInput').select(); return;
   }
@@ -2405,29 +2684,285 @@ function execCSV(){
 }
 
 // ══════════════════════════════
-// サウンド
+// サウンド（8種カスタム対応）
 // ══════════════════════════════
-let audioCtx=null;
-function getACtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
-function playTone(notes,type='sine'){
-  const ctx=getACtx();let t=ctx.currentTime;
+
+// 効果音定義テーブル
+const SOUND_DEFS = [
+  { key:'in',        icon:'✅', label:'出勤',           when:'出勤打刻成功',                    tone:()=>playTone([[660,.12],[880,.18],[1100,.22]],'sine') },
+  { key:'go',        icon:'🚶', label:'外出',           when:'外出打刻成功',                    tone:()=>playTone([[880,.12],[660,.18]],'triangle') },
+  { key:'back',      icon:'🏃', label:'戻り',           when:'戻り打刻成功',                    tone:()=>playTone([[660,.10],[880,.10],[770,.20]],'sine') },
+  { key:'out',       icon:'👋', label:'退勤',           when:'退勤打刻成功',                    tone:()=>playTone([[880,.15],[660,.15],[440,.30,.32]],'sine') },
+  { key:'authFail',  icon:'❌', label:'認証失敗',       when:'未登録の顔（3秒以内再鳴動なし）', tone:()=>playTone([[300,.12],[220,.25]],'sawtooth') },
+  { key:'duplicate', icon:'⚠️', label:'重複打刻',       when:'連続・すでに出退勤済み',           tone:()=>playTone([[440,.08],[440,.08],[440,.18]],'triangle') },
+  { key:'empAdded',  icon:'👤', label:'社員登録完了',   when:'社員を追加したとき',               tone:()=>playTone([[660,.08],[880,.08],[1100,.08],[1320,.18]],'sine') },
+  { key:'recordOp',  icon:'📝', label:'打刻修正・削除', when:'記録の修正・削除が完了したとき',   tone:()=>playTone([[550,.10],[660,.18]],'sine') },
+];
+
+let audioCtx = null;
+function getACtx(){ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+function playTone(notes, waveType='sine'){
+  const ctx=getACtx(); let t=ctx.currentTime;
   notes.forEach(([f,d,v=0.35])=>{
-    const o=ctx.createOscillator(),g=ctx.createGain();
-    o.connect(g);g.connect(ctx.destination);
-    o.type=type;o.frequency.setValueAtTime(f,t);
-    g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.001,t+d);
-    o.start(t);o.stop(t+d);t+=d*.85;
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type=waveType; o.frequency.setValueAtTime(f,t);
+    g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d);
+    o.start(t); o.stop(t+d); t+=d*.85;
   });
 }
-function playSound(type){
+document.addEventListener('click',()=>{try{getACtx();}catch(_){}},{once:true});
+
+// カスタム音声バッファ
+const customSounds = Object.fromEntries(SOUND_DEFS.map(d=>[d.key,null]));
+
+async function playCustomSound(key){
   try{
-    if(type==='in')  playTone([[660,.12],[880,.18],[1100,.22]],'sine');
-    if(type==='go')  playTone([[880,.12],[660,.18]],'triangle');
-    if(type==='back')playTone([[660,.10],[880,.10],[770,.20]],'sine');
-    if(type==='out') playTone([[880,.15],[660,.15],[440,.30,.32]],'sine');
+    const buf=customSounds[key]; if(!buf) return false;
+    const ctx=getACtx();
+    const decoded=await ctx.decodeAudioData(buf.slice(0));
+    const src=ctx.createBufferSource(); src.buffer=decoded; src.connect(ctx.destination); src.start(0);
+    return true;
+  }catch(e){ return false; }
+}
+
+async function playSound(key){
+  try{
+    const played=await playCustomSound(key);
+    if(!played){ SOUND_DEFS.find(d=>d.key===key)?.tone(); }
   }catch(_){}
 }
-document.addEventListener('click',()=>{try{getACtx();}catch(_){}},{once:true});
+
+// 認証失敗クールダウン（連続鳴動防止）
+let _lastAuthFail=0;
+function playAuthFailSound(){ const n=Date.now(); if(n-_lastAuthFail<3000)return; _lastAuthFail=n; playSound('authFail'); }
+
+// ── IndexedDB 保存・読み込み ─────────────────────
+const SND_STORE='customSounds';
+function openSndDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open('attendSounds',1);
+    req.onupgradeneeded=e=>e.target.result.createObjectStore(SND_STORE);
+    req.onsuccess=e=>res(e.target.result); req.onerror=e=>rej(e.target.error);
+  });
+}
+async function saveSoundToDB(key,buf){
+  const db=await openSndDB();
+  return new Promise((res,rej)=>{ const tx=db.transaction(SND_STORE,'readwrite'); tx.objectStore(SND_STORE).put(buf,key); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); });
+}
+async function loadSoundsFromDB(){
+  try{
+    const db=await openSndDB();
+    for(const {key} of SOUND_DEFS){
+      const buf=await new Promise((res,rej)=>{ const req=db.transaction(SND_STORE,'readonly').objectStore(SND_STORE).get(key); req.onsuccess=e=>res(e.target.result||null); req.onerror=e=>rej(e.target.error); });
+      if(buf){ customSounds[key]=buf; updateSoundStatus(key,true); }
+    }
+  }catch(e){}
+}
+async function deleteSoundFromDB(key){
+  const db=await openSndDB();
+  return new Promise((res,rej)=>{ const tx=db.transaction(SND_STORE,'readwrite'); tx.objectStore(SND_STORE).delete(key); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); });
+}
+
+// ── UIコールバック ─────────────────────────────
+function loadSoundFile(key, input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const buf=e.target.result;
+    customSounds[key]=buf;
+    await saveSoundToDB(key,buf);
+    updateSoundStatus(key,true,file.name);
+    const def=SOUND_DEFS.find(d=>d.key===key);
+    showToast(`${def?.icon??''} ${def?.label??key} の音を設定しました`);
+  };
+  reader.readAsArrayBuffer(file); input.value='';
+}
+function previewSound(key){ playSound(key); }
+async function clearSound(key){
+  customSounds[key]=null; await deleteSoundFromDB(key);
+  updateSoundStatus(key,false); showToast('デフォルト音に戻しました');
+}
+function updateSoundStatus(key,hasCustom,fname){
+  const el=document.getElementById('snd-status-'+key); if(!el) return;
+  if(hasCustom){ el.textContent=fname?`📁 ${fname}`:'✓ カスタム'; el.style.color='var(--green)'; }
+  else          { el.textContent='デフォルト'; el.style.color='var(--muted)'; }
+}
+
+// サウンドカードを動的生成（設定ページ描画時に呼ぶ）
+function renderSoundCards(){
+  const grid=document.getElementById('soundCardGrid'); if(!grid) return;
+  grid.innerHTML=SOUND_DEFS.map(def=>`
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:9px;padding:12px 14px;">
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;">
+        <span style="font-size:18px;line-height:1.2;">${def.icon}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;">${def.label}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4;">${def.when}</div>
+        </div>
+        <span id="snd-status-${def.key}" style="font-size:10px;color:var(--muted);white-space:nowrap;">デフォルト</span>
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:11px;padding:5px 10px;">
+          📁 選択<input type="file" accept="audio/*" style="display:none" onchange="loadSoundFile('${def.key}',this)">
+        </label>
+        <button class="btn btn-sm" onclick="previewSound('${def.key}')" style="background:rgba(0,229,255,.12);border:1px solid var(--accent2);color:var(--accent2);font-size:11px;padding:5px 10px;">▶ 試聴</button>
+        <button class="btn btn-sm" onclick="clearSound('${def.key}')" style="background:rgba(255,51,85,.1);border:1px solid var(--red);color:var(--red);font-size:11px;padding:5px 10px;">✕</button>
+      </div>
+    </div>`).join('');
+  // 既ロード済みのカスタム音声のステータスを反映
+  SOUND_DEFS.forEach(d=>{ if(customSounds[d.key]) updateSoundStatus(d.key,true); });
+}
+
+loadSoundsFromDB();
+
+// ══════════════════════════════
+// 設定ページ
+// ══════════════════════════════
+const SETTINGS_KEY='attendOsSettings';
+const defaultSettings={
+  authMode:'face', scanCooldown:6, qrCooldown:6,
+  faceConf:60, matchThreshold:0.5,
+  autoDelete:0, recordsPerPage:50, encoding:'utf8bom',
+  depts:'営業課\n資材課\n総務課\n技術開発課\n製造課',
+  showDept:true, showId:true, showFaceStatus:true,
+  timeout:60, clockFmt:'full', resetDelay:3,
+  theme:{accent:'#00e5ff',accent2:'#0099bb'},
+  adminPw:'0000'
+};
+let appSettings={...defaultSettings};
+
+function loadSettings(){
+  try{
+    const saved=localStorage.getItem(SETTINGS_KEY);
+    if(saved) appSettings={...defaultSettings,...JSON.parse(saved)};
+  }catch(_){}
+  applySettingsToUI();
+  applySettingsToApp();
+  renderSoundCards();
+}
+
+function applySettingsToUI(){
+  const s=appSettings;
+  document.getElementById('cfg-authMode').value=s.authMode;
+  document.getElementById('cfg-scanCooldown').value=s.scanCooldown;
+  document.getElementById('cfg-qrCooldown').value=s.qrCooldown;
+  const faceConf=document.getElementById('cfg-faceConf');
+  faceConf.value=s.faceConf;
+  document.getElementById('cfg-faceConfVal').textContent=s.faceConf+'%';
+  const matchT=document.getElementById('cfg-matchThreshold');
+  matchT.value=s.matchThreshold;
+  document.getElementById('cfg-matchThresholdVal').textContent=parseFloat(s.matchThreshold).toFixed(2);
+  document.getElementById('cfg-autoDelete').value=s.autoDelete;
+  document.getElementById('cfg-recordsPerPage').value=s.recordsPerPage;
+  document.getElementById('cfg-encoding').value=s.encoding;
+  document.getElementById('cfg-depts').value=s.depts;
+  document.getElementById('cfg-showDept').checked=s.showDept;
+  document.getElementById('cfg-showId').checked=s.showId;
+  document.getElementById('cfg-showFaceStatus').checked=s.showFaceStatus;
+  document.getElementById('cfg-timeout').value=s.timeout;
+  document.getElementById('cfg-clockFmt').value=s.clockFmt;
+  document.getElementById('cfg-resetDelay').value=s.resetDelay;
+  if(s.theme) setTheme(s.theme.accent,s.theme.accent2,true);
+}
+
+function applySettingsToApp(){
+  const s=appSettings;
+  // 認証方式
+  if(typeof setAuthMode==='function') setAuthMode(s.authMode);
+  // 部署プルダウン反映
+  applyDeptsToSelect(s.depts);
+  // タイムアウト
+  setupIdleTimeout(s.timeout);
+}
+
+function saveSettings(){
+  const s=appSettings;
+  s.authMode=document.getElementById('cfg-authMode').value;
+  s.scanCooldown=parseInt(document.getElementById('cfg-scanCooldown').value)||6;
+  s.qrCooldown=parseInt(document.getElementById('cfg-qrCooldown').value)||6;
+  s.faceConf=parseInt(document.getElementById('cfg-faceConf').value)||60;
+  s.matchThreshold=parseFloat(document.getElementById('cfg-matchThreshold').value)||0.5;
+  s.autoDelete=parseInt(document.getElementById('cfg-autoDelete').value)||0;
+  s.recordsPerPage=parseInt(document.getElementById('cfg-recordsPerPage').value)||50;
+  s.encoding=document.getElementById('cfg-encoding').value;
+  s.depts=document.getElementById('cfg-depts').value;
+  s.showDept=document.getElementById('cfg-showDept').checked;
+  s.showId=document.getElementById('cfg-showId').checked;
+  s.showFaceStatus=document.getElementById('cfg-showFaceStatus').checked;
+  s.timeout=parseInt(document.getElementById('cfg-timeout').value)||0;
+  s.clockFmt=document.getElementById('cfg-clockFmt').value;
+  s.resetDelay=parseInt(document.getElementById('cfg-resetDelay').value)||3;
+  // CONFIGに動的反映
+  window._SCAN_COOLDOWN_MS=s.scanCooldown*1000;
+  window._QR_COOLDOWN_MS=s.qrCooldown*1000;
+  window._FACE_CONF_THRESHOLD=s.faceConf/100;
+  window._MATCH_THRESHOLD=s.matchThreshold;
+  try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(s));}catch(_){}
+  applySettingsToApp();
+  showToast('設定を保存しました ✓');
+}
+
+function resetSettings(){
+  if(!confirm('設定を初期値に戻しますか？')) return;
+  appSettings={...defaultSettings};
+  applySettingsToUI();
+  try{localStorage.removeItem(SETTINGS_KEY);}catch(_){}
+  showToast('設定を初期値に戻しました');
+}
+
+function changeAdminPw(){
+  const oldPw=document.getElementById('cfg-adminPwOld').value;
+  const newPw=document.getElementById('cfg-adminPwNew').value;
+  if(oldPw!==appSettings.adminPw){showToast('現在のパスワードが違います',true);return;}
+  if(!newPw){showToast('新しいパスワードを入力してください',true);return;}
+  appSettings.adminPw=newPw;
+  window._ADMIN_PW=newPw;
+  try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(appSettings));}catch(_){}
+  document.getElementById('cfg-adminPwOld').value='';
+  document.getElementById('cfg-adminPwNew').value='';
+  showToast('パスワードを変更しました ✓');
+}
+
+function applyDepts(){
+  const depts=document.getElementById('cfg-depts').value;
+  appSettings.depts=depts;
+  applyDeptsToSelect(depts);
+  showToast('部署リストを反映しました');
+}
+function applyDeptsToSelect(depts){
+  const sel=document.getElementById('newDept');if(!sel)return;
+  const lines=depts.split('\n').map(s=>s.trim()).filter(Boolean);
+  sel.innerHTML=lines.map(d=>`<option>${d}</option>`).join('');
+}
+
+// テーマカラー変更
+function setTheme(accent,accent2,silent=false){
+  document.documentElement.style.setProperty('--accent',accent);
+  document.documentElement.style.setProperty('--accent2',accent2);
+  appSettings.theme={accent,accent2};
+  if(!silent) showToast('テーマカラーを変更しました');
+}
+
+// アイドルタイムアウト（打刻タブに自動で戻る）
+let idleTimer=null;
+function setupIdleTimeout(sec){
+  clearTimeout(idleTimer);
+  if(!sec) return;
+  const reset=()=>{
+    clearTimeout(idleTimer);
+    idleTimer=setTimeout(()=>{
+      const active=document.querySelector('.page.active');
+      if(active&&active.id!=='page-scan') switchTab('scan');
+    },sec*1000);
+  };
+  ['click','touchstart','keydown'].forEach(ev=>document.addEventListener(ev,reset,{passive:true}));
+  reset();
+}
+
+// 起動時に設定読み込み
+loadSettings();
+
 
 // ══════════════════════════════
 // TOAST
