@@ -2688,16 +2688,18 @@ function execCSV(){
 // ══════════════════════════════
 
 // 効果音定義テーブル
+// multi:true → 最大3スロットのランダム再生対応
 const SOUND_DEFS = [
-  { key:'in',        icon:'✅', label:'出勤',           when:'出勤打刻成功',                    tone:()=>playTone([[660,.12],[880,.18],[1100,.22]],'sine') },
-  { key:'go',        icon:'🚶', label:'外出',           when:'外出打刻成功',                    tone:()=>playTone([[880,.12],[660,.18]],'triangle') },
-  { key:'back',      icon:'🏃', label:'戻り',           when:'戻り打刻成功',                    tone:()=>playTone([[660,.10],[880,.10],[770,.20]],'sine') },
-  { key:'out',       icon:'👋', label:'退勤',           when:'退勤打刻成功',                    tone:()=>playTone([[880,.15],[660,.15],[440,.30,.32]],'sine') },
-  { key:'authFail',  icon:'❌', label:'認証失敗',       when:'未登録の顔（3秒以内再鳴動なし）', tone:()=>playTone([[300,.12],[220,.25]],'sawtooth') },
-  { key:'duplicate', icon:'⚠️', label:'重複打刻',       when:'連続・すでに出退勤済み',           tone:()=>playTone([[440,.08],[440,.08],[440,.18]],'triangle') },
-  { key:'empAdded',  icon:'👤', label:'社員登録完了',   when:'社員を追加したとき',               tone:()=>playTone([[660,.08],[880,.08],[1100,.08],[1320,.18]],'sine') },
-  { key:'recordOp',  icon:'📝', label:'打刻修正・削除', when:'記録の修正・削除が完了したとき',   tone:()=>playTone([[550,.10],[660,.18]],'sine') },
+  { key:'in',        icon:'✅', label:'出勤',           when:'出勤打刻成功',                    multi:true,  tone:()=>playTone([[660,.12],[880,.18],[1100,.22]],'sine') },
+  { key:'go',        icon:'🚶', label:'外出',           when:'外出打刻成功',                    multi:true,  tone:()=>playTone([[880,.12],[660,.18]],'triangle') },
+  { key:'back',      icon:'🏃', label:'戻り',           when:'戻り打刻成功',                    multi:true,  tone:()=>playTone([[660,.10],[880,.10],[770,.20]],'sine') },
+  { key:'out',       icon:'👋', label:'退勤',           when:'退勤打刻成功',                    multi:true,  tone:()=>playTone([[880,.15],[660,.15],[440,.30,.32]],'sine') },
+  { key:'authFail',  icon:'❌', label:'認証失敗',       when:'未登録の顔（3秒以内再鳴動なし）', multi:false, tone:()=>playTone([[300,.12],[220,.25]],'sawtooth') },
+  { key:'duplicate', icon:'⚠️', label:'重複打刻',       when:'連続・すでに出退勤済み',           multi:false, tone:()=>playTone([[440,.08],[440,.08],[440,.18]],'triangle') },
+  { key:'empAdded',  icon:'👤', label:'社員登録完了',   when:'社員を追加したとき',               multi:false, tone:()=>playTone([[660,.08],[880,.08],[1100,.08],[1320,.18]],'sine') },
+  { key:'recordOp',  icon:'📝', label:'打刻修正・削除', when:'記録の修正・削除が完了したとき',   multi:false, tone:()=>playTone([[550,.10],[660,.18]],'sine') },
 ];
+const MULTI_SLOTS = 3; // ランダム再生スロット数
 
 let audioCtx = null;
 function getACtx(){ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
@@ -2714,104 +2716,220 @@ function playTone(notes, waveType='sine'){
 document.addEventListener('click',()=>{try{getACtx();}catch(_){}},{once:true});
 
 // カスタム音声バッファ
-const customSounds = Object.fromEntries(SOUND_DEFS.map(d=>[d.key,null]));
+// multi:true のキー → ArrayBuffer[] (最大MULTI_SLOTS個)
+// multi:false のキー → ArrayBuffer|null
+const customSounds = Object.fromEntries(
+  SOUND_DEFS.map(d => [d.key, d.multi ? new Array(MULTI_SLOTS).fill(null) : null])
+);
 
+// ランダム再生（multi）or 単独再生
 async function playCustomSound(key){
   try{
-    const buf=customSounds[key]; if(!buf) return false;
-    const ctx=getACtx();
-    const decoded=await ctx.decodeAudioData(buf.slice(0));
-    const src=ctx.createBufferSource(); src.buffer=decoded; src.connect(ctx.destination); src.start(0);
+    const def = SOUND_DEFS.find(d=>d.key===key);
+    let buffers;
+    if(def?.multi){
+      buffers = (customSounds[key]).filter(b=>b!=null);
+      if(!buffers.length) return false;
+    } else {
+      const b = customSounds[key];
+      if(!b) return false;
+      buffers = [b];
+    }
+    const buf = buffers[Math.floor(Math.random()*buffers.length)];
+    const ctx = getACtx();
+    const decoded = await ctx.decodeAudioData(buf.slice(0));
+    const src = ctx.createBufferSource();
+    src.buffer=decoded; src.connect(ctx.destination); src.start(0);
     return true;
   }catch(e){ return false; }
 }
 
 async function playSound(key){
   try{
-    const played=await playCustomSound(key);
+    const played = await playCustomSound(key);
     if(!played){ SOUND_DEFS.find(d=>d.key===key)?.tone(); }
   }catch(_){}
 }
 
-// 認証失敗クールダウン（連続鳴動防止）
+// 認証失敗クールダウン
 let _lastAuthFail=0;
 function playAuthFailSound(){ const n=Date.now(); if(n-_lastAuthFail<3000)return; _lastAuthFail=n; playSound('authFail'); }
 
-// ── IndexedDB 保存・読み込み ─────────────────────
+// ── IndexedDB ─────────────────────────────────
 const SND_STORE='customSounds';
 function openSndDB(){
   return new Promise((res,rej)=>{
-    const req=indexedDB.open('attendSounds',1);
-    req.onupgradeneeded=e=>e.target.result.createObjectStore(SND_STORE);
+    const req=indexedDB.open('attendSounds',2); // v2: multi-slot対応
+    req.onupgradeneeded=e=>{ const db=e.target.result; if(!db.objectStoreNames.contains(SND_STORE)) db.createObjectStore(SND_STORE); };
     req.onsuccess=e=>res(e.target.result); req.onerror=e=>rej(e.target.error);
   });
 }
-async function saveSoundToDB(key,buf){
+async function saveSoundToDB(key, slot, buf){
+  // key: sound key, slot: 0|1|2 (multiの場合) or 0 (singleの場合)
   const db=await openSndDB();
-  return new Promise((res,rej)=>{ const tx=db.transaction(SND_STORE,'readwrite'); tx.objectStore(SND_STORE).put(buf,key); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); });
+  const dbKey = `${key}_${slot}`;
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(SND_STORE,'readwrite');
+    tx.objectStore(SND_STORE).put(buf, dbKey);
+    tx.oncomplete=res; tx.onerror=e=>rej(e.target.error);
+  });
+}
+async function deleteSoundFromDB(key, slot){
+  const db=await openSndDB();
+  const dbKey = `${key}_${slot}`;
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(SND_STORE,'readwrite');
+    tx.objectStore(SND_STORE).delete(dbKey);
+    tx.oncomplete=res; tx.onerror=e=>rej(e.target.error);
+  });
 }
 async function loadSoundsFromDB(){
   try{
     const db=await openSndDB();
-    for(const {key} of SOUND_DEFS){
-      const buf=await new Promise((res,rej)=>{ const req=db.transaction(SND_STORE,'readonly').objectStore(SND_STORE).get(key); req.onsuccess=e=>res(e.target.result||null); req.onerror=e=>rej(e.target.error); });
-      if(buf){ customSounds[key]=buf; updateSoundStatus(key,true); }
+    for(const def of SOUND_DEFS){
+      const slots = def.multi ? MULTI_SLOTS : 1;
+      for(let s=0; s<slots; s++){
+        const dbKey = `${def.key}_${s}`;
+        const buf=await new Promise((res,rej)=>{
+          const req=db.transaction(SND_STORE,'readonly').objectStore(SND_STORE).get(dbKey);
+          req.onsuccess=e=>res(e.target.result||null); req.onerror=e=>rej(e.target.error);
+        });
+        if(buf){
+          if(def.multi) customSounds[def.key][s]=buf;
+          else          customSounds[def.key]=buf;
+        }
+      }
+      updateSoundStatus(def.key);
     }
   }catch(e){}
 }
-async function deleteSoundFromDB(key){
-  const db=await openSndDB();
-  return new Promise((res,rej)=>{ const tx=db.transaction(SND_STORE,'readwrite'); tx.objectStore(SND_STORE).delete(key); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); });
-}
 
 // ── UIコールバック ─────────────────────────────
-function loadSoundFile(key, input){
+function loadSoundFile(key, slot, input){
   const file=input.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=async e=>{
     const buf=e.target.result;
-    customSounds[key]=buf;
-    await saveSoundToDB(key,buf);
-    updateSoundStatus(key,true,file.name);
     const def=SOUND_DEFS.find(d=>d.key===key);
-    showToast(`${def?.icon??''} ${def?.label??key} の音を設定しました`);
+    if(def?.multi) customSounds[key][slot]=buf;
+    else           customSounds[key]=buf;
+    await saveSoundToDB(key, slot, buf);
+    updateSoundStatus(key);
+    const filled = def?.multi ? customSounds[key].filter(b=>b).length : 1;
+    showToast(`${def?.icon??''} ${def?.label??key}${def?.multi?` スロット${slot+1}`:''}の音を設定しました`);
   };
   reader.readAsArrayBuffer(file); input.value='';
 }
-function previewSound(key){ playSound(key); }
-async function clearSound(key){
-  customSounds[key]=null; await deleteSoundFromDB(key);
-  updateSoundStatus(key,false); showToast('デフォルト音に戻しました');
-}
-function updateSoundStatus(key,hasCustom,fname){
-  const el=document.getElementById('snd-status-'+key); if(!el) return;
-  if(hasCustom){ el.textContent=fname?`📁 ${fname}`:'✓ カスタム'; el.style.color='var(--green)'; }
-  else          { el.textContent='デフォルト'; el.style.color='var(--muted)'; }
+
+function previewSound(key, slot=null){
+  if(slot!==null){
+    // 特定スロットの試聴
+    const def=SOUND_DEFS.find(d=>d.key===key);
+    const buf = def?.multi ? customSounds[key][slot] : customSounds[key];
+    if(buf){
+      (async()=>{
+        try{
+          const ctx=getACtx();
+          const decoded=await ctx.decodeAudioData(buf.slice(0));
+          const src=ctx.createBufferSource();
+          src.buffer=decoded; src.connect(ctx.destination); src.start(0);
+        }catch(_){ def?.tone(); }
+      })();
+    } else { def?.tone(); }
+  } else {
+    playSound(key);
+  }
 }
 
-// サウンドカードを動的生成（設定ページ描画時に呼ぶ）
+async function clearSound(key, slot){
+  const def=SOUND_DEFS.find(d=>d.key===key);
+  if(def?.multi){ customSounds[key][slot]=null; }
+  else           { customSounds[key]=null; }
+  await deleteSoundFromDB(key, slot);
+  updateSoundStatus(key);
+  showToast('デフォルト音に戻しました');
+}
+
+function updateSoundStatus(key){
+  const def=SOUND_DEFS.find(d=>d.key===key); if(!def) return;
+  if(def.multi){
+    // スロット別に更新
+    for(let s=0; s<MULTI_SLOTS; s++){
+      const el=document.getElementById(`snd-status-${key}-${s}`); if(!el) continue;
+      const hasBuf=!!customSounds[key][s];
+      el.textContent = hasBuf ? '✓ 設定済み' : '未設定';
+      el.style.color  = hasBuf ? 'var(--green)' : 'var(--muted)';
+    }
+    // カード全体のサマリー
+    const summary=document.getElementById(`snd-status-${key}`);
+    if(summary){
+      const n=customSounds[key].filter(b=>b).length;
+      summary.textContent = n>0 ? `✓ ${n}個設定済み` : 'デフォルト';
+      summary.style.color  = n>0 ? 'var(--green)' : 'var(--muted)';
+    }
+  } else {
+    const el=document.getElementById(`snd-status-${key}`); if(!el) return;
+    const has=!!customSounds[key];
+    el.textContent = has ? '✓ カスタム' : 'デフォルト';
+    el.style.color  = has ? 'var(--green)' : 'var(--muted)';
+  }
+}
+
+// サウンドカードを動的生成
 function renderSoundCards(){
   const grid=document.getElementById('soundCardGrid'); if(!grid) return;
-  grid.innerHTML=SOUND_DEFS.map(def=>`
-    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:9px;padding:12px 14px;">
-      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;">
-        <span style="font-size:18px;line-height:1.2;">${def.icon}</span>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:600;">${def.label}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4;">${def.when}</div>
-        </div>
-        <span id="snd-status-${def.key}" style="font-size:10px;color:var(--muted);white-space:nowrap;">デフォルト</span>
-      </div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap;">
-        <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:11px;padding:5px 10px;">
-          📁 選択<input type="file" accept="audio/*" style="display:none" onchange="loadSoundFile('${def.key}',this)">
-        </label>
-        <button class="btn btn-sm" onclick="previewSound('${def.key}')" style="background:rgba(0,229,255,.12);border:1px solid var(--accent2);color:var(--accent2);font-size:11px;padding:5px 10px;">▶ 試聴</button>
-        <button class="btn btn-sm" onclick="clearSound('${def.key}')" style="background:rgba(255,51,85,.1);border:1px solid var(--red);color:var(--red);font-size:11px;padding:5px 10px;">✕</button>
-      </div>
-    </div>`).join('');
-  // 既ロード済みのカスタム音声のステータスを反映
-  SOUND_DEFS.forEach(d=>{ if(customSounds[d.key]) updateSoundStatus(d.key,true); });
+  grid.innerHTML = SOUND_DEFS.map(def => {
+    if(def.multi){
+      // 3スロット版カード（full-width）
+      const slots = Array.from({length:MULTI_SLOTS},(_,s)=>`
+        <div style="background:var(--surface);border:1px solid var(--border2);border-radius:7px;padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:11px;font-weight:700;color:var(--accent2);font-family:var(--mono);flex-shrink:0;">SLOT ${s+1}</span>
+          <span id="snd-status-${def.key}-${s}" style="font-size:10px;color:var(--muted);flex:1;">未設定</span>
+          <div style="display:flex;gap:4px;">
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:11px;padding:4px 9px;">
+              📁<input type="file" accept="audio/*" style="display:none" onchange="loadSoundFile('${def.key}',${s},this)">
+            </label>
+            <button class="btn btn-sm" onclick="previewSound('${def.key}',${s})" style="background:rgba(0,229,255,.12);border:1px solid var(--accent2);color:var(--accent2);font-size:11px;padding:4px 9px;">▶</button>
+            <button class="btn btn-sm" onclick="clearSound('${def.key}',${s})" style="background:rgba(255,51,85,.1);border:1px solid var(--red);color:var(--red);font-size:11px;padding:4px 9px;">✕</button>
+          </div>
+        </div>`).join('');
+      return `
+        <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:9px;padding:13px 14px;grid-column:span 2;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:18px;">${def.icon}</span>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:600;">${def.label}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:1px;">${def.when}　／　複数登録するとランダムで再生</div>
+            </div>
+            <span id="snd-status-${def.key}" style="font-size:10px;color:var(--muted);white-space:nowrap;">デフォルト</span>
+            <button class="btn btn-sm" onclick="previewSound('${def.key}')" style="background:rgba(0,229,255,.12);border:1px solid var(--accent2);color:var(--accent2);font-size:11px;padding:4px 10px;white-space:nowrap;">▶ 試聴</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">${slots}</div>
+        </div>`;
+    } else {
+      // 通常1スロットカード
+      return `
+        <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:9px;padding:13px 14px;">
+          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;">
+            <span style="font-size:18px;line-height:1.2;">${def.icon}</span>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:600;">${def.label}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4;">${def.when}</div>
+            </div>
+            <span id="snd-status-${def.key}" style="font-size:10px;color:var(--muted);white-space:nowrap;">デフォルト</span>
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;">
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:11px;padding:5px 10px;">
+              📁 選択<input type="file" accept="audio/*" style="display:none" onchange="loadSoundFile('${def.key}',0,this)">
+            </label>
+            <button class="btn btn-sm" onclick="previewSound('${def.key}')" style="background:rgba(0,229,255,.12);border:1px solid var(--accent2);color:var(--accent2);font-size:11px;padding:5px 10px;">▶ 試聴</button>
+            <button class="btn btn-sm" onclick="clearSound('${def.key}',0)" style="background:rgba(255,51,85,.1);border:1px solid var(--red);color:var(--red);font-size:11px;padding:5px 10px;">✕</button>
+          </div>
+        </div>`;
+    }
+  }).join('');
+  // ステータス反映
+  SOUND_DEFS.forEach(d => updateSoundStatus(d.key));
 }
 
 loadSoundsFromDB();
