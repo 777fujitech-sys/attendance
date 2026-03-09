@@ -784,6 +784,7 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
           <th onclick="setSort('confidence')" id="th-confidence">信頼度</th>
           <th onclick="setSort('date')"    id="th-date">日付</th>
           <th onclick="setSort('time')"    id="th-time">時刻</th>
+          <th onclick="setSort('empId_time')" id="th-empId_time" style="white-space:nowrap">ID＋時間↑</th>
           <th style="cursor:default;width:80px">操作</th>
         </tr>
       </thead>
@@ -1930,6 +1931,46 @@ async function processAttendance(empId, confidence, type, method){
     return;
   }
 
+  // 打刻順序チェック
+  const _last=getLastRecord(empId);
+  const _lastType=_last?_last.type:null;
+  // 外出：本日出勤済みでなければNG
+  if(type==='go'){
+    if(!hasTypeOnDate(empId,'in',_today)){
+      showToast(`${emp.name}さんは本日まだ出勤していません`,true);
+      playSound('authFail');
+      return;
+    }
+  }
+  // 戻り：本日外出中（最後の打刻が外出）でなければNG
+  if(type==='back'){
+    if(_lastType!=='go'){
+      showToast(`${emp.name}さんは外出していません`,true);
+      playSound('authFail');
+      return;
+    }
+  }
+  // 退勤：最後の打刻が外出中（go）ならNG
+  if(type==='out'){
+    if(_lastType==='go'){
+      showToast(`${emp.name}さんは外出中です。先に戻りを打刻してください`,true);
+      playSound('authFail');
+      return;
+    }
+    // 退勤：出勤していなければNG
+    if(!hasTypeOnDate(empId,'in',_today)){
+      showToast(`${emp.name}さんは本日まだ出勤していません`,true);
+      playSound('authFail');
+      return;
+    }
+  }
+  // 出勤以外：出勤記録がなければNG（go/back/out 共通の最終防衛）
+  if(type!=='in' && !hasTypeOnDate(empId,'in',_today)){
+    showToast(`${emp.name}さんは本日まだ出勤していません`,true);
+    playSound('authFail');
+    return;
+  }
+
   const record={
     id:Date.now(),empId:emp.id,empName:emp.name,dept:emp.dept,
     type,method,
@@ -2271,12 +2312,19 @@ let sortKey='timestamp', sortDir='desc';
 const SORT_TYPE_ORDER={in:0,go:1,back:2,out:3};
 
 function setSort(key){
-  if(sortKey===key){sortDir=sortDir==='asc'?'desc':'asc';}
-  else{sortKey=key;sortDir=key==='empName'?'asc':'desc';}
+  if(key==='empId_time'){
+    // 複合ソートは常に固定順（ID昇順→時刻昇順）、再クリックで解除してデフォルトに戻す
+    if(sortKey==='empId_time'){ sortKey='timestamp'; sortDir='desc'; }
+    else{ sortKey='empId_time'; sortDir='asc'; }
+  } else if(sortKey===key){
+    sortDir=sortDir==='asc'?'desc':'asc';
+  } else {
+    sortKey=key; sortDir=key==='empName'||key==='empId'?'asc':'desc';
+  }
   renderRecords();
 }
 function updateSortIndicators(){
-  ['empId','empName','dept','type','method','confidence','date','time'].forEach(k=>{
+  ['empId','empName','dept','type','method','confidence','date','time','empId_time'].forEach(k=>{
     const th=document.getElementById('th-'+k);
     if(!th)return;
     th.className=sortKey===k?('sort-'+sortDir):'';
@@ -2284,6 +2332,14 @@ function updateSortIndicators(){
 }
 function sortRecords(arr){
   return [...arr].sort((a,b)=>{
+    // 複合ソート: 社員ID昇順 → 時刻昇順
+    if(sortKey==='empId_time'){
+      const idCmp=(a.empId||'').localeCompare(b.empId||'','ja');
+      if(idCmp!==0) return idCmp;
+      const ta=(a.date||'')+(a.time||'');
+      const tb=(b.date||'')+(b.time||'');
+      return ta<tb?-1:ta>tb?1:0;
+    }
     let va,vb;
     if(sortKey==='type'){va=SORT_TYPE_ORDER[a.type]??99;vb=SORT_TYPE_ORDER[b.type]??99;}
     else if(sortKey==='confidence'){va=a.confidence??-1;vb=b.confidence??-1;}
