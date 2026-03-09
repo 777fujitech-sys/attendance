@@ -473,6 +473,9 @@ thead th{
 thead th:hover{color:var(--text);}
 thead th.sort-asc::after{content:' ▲';font-size:9px;}
 thead th.sort-desc::after{content:' ▼';font-size:9px;}
+thead th.sort-sub{opacity:.8;}
+thead th.sort-sub.sort-asc::after{content:' ▲₂';font-size:9px;color:var(--accent);}
+thead th.sort-sub.sort-desc::after{content:' ▼₂';font-size:9px;color:var(--accent);}
 tbody tr{border-bottom:1px solid rgba(26,48,80,.4);transition:background .15s;}
 tbody tr:hover{background:var(--surface2);}
 tbody td{padding:10px 14px;font-size:13px;}
@@ -784,7 +787,6 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
           <th onclick="setSort('confidence')" id="th-confidence">信頼度</th>
           <th onclick="setSort('date')"    id="th-date">日付</th>
           <th onclick="setSort('time')"    id="th-time">時刻</th>
-          <th onclick="setSort('empId_time')" id="th-empId_time" style="white-space:nowrap">ID＋時間↑</th>
           <th style="cursor:default;width:80px">操作</th>
         </tr>
       </thead>
@@ -2292,38 +2294,61 @@ function closeCaptureModal(){
 // ══════════════════════════════
 // 打刻記録ページ
 // ══════════════════════════════
-let sortKey='timestamp', sortDir='desc';
+// sortKey: 主キー  sortDir: 主キーの方向
+// sortSubKey: 複合時の第2キー（null=単独ソート）
+let sortKey='timestamp', sortDir='desc', sortSubKey=null, sortSubDir='asc';
 const SORT_TYPE_ORDER={in:0,go:1,back:2,out:3};
 
 function setSort(key){
-  if(key==='empId_time'){
-    // 複合ソートは常に固定順（ID昇順→時刻昇順）、再クリックで解除してデフォルトに戻す
-    if(sortKey==='empId_time'){ sortKey='timestamp'; sortDir='desc'; }
-    else{ sortKey='empId_time'; sortDir='asc'; }
-  } else if(sortKey===key){
-    sortDir=sortDir==='asc'?'desc':'asc';
+  // 社員IDがアクティブな状態で時刻をクリック → 複合ソート
+  if(key==='time' && sortKey==='empId'){
+    if(sortSubKey==='time'){
+      // 2回目以降: 時刻方向をトグル
+      sortSubDir = sortSubDir==='asc'?'desc':'asc';
+    } else {
+      // 初回: 複合ソート開始（時刻昇順）
+      sortSubKey = 'time';
+      sortSubDir = 'asc';
+    }
   } else {
-    sortKey=key; sortDir=key==='empName'||key==='empId'?'asc':'desc';
+    // 通常ソート（複合解除）
+    sortSubKey = null;
+    if(sortKey===key){
+      sortDir = sortDir==='asc'?'desc':'asc';
+    } else {
+      sortKey = key;
+      sortDir = (key==='empName'||key==='empId') ? 'asc' : 'desc';
+    }
   }
   renderRecords();
 }
 function updateSortIndicators(){
-  ['empId','empName','dept','type','method','confidence','date','time','empId_time'].forEach(k=>{
+  ['empId','empName','dept','type','method','confidence','date','time'].forEach(k=>{
     const th=document.getElementById('th-'+k);
-    if(!th)return;
-    th.className=sortKey===k?('sort-'+sortDir):'';
+    if(!th) return;
+    if(k==='empId' && sortKey==='empId'){
+      th.className='sort-'+sortDir;
+    } else if(k==='time' && sortKey==='empId' && sortSubKey==='time'){
+      th.className='sort-'+sortSubDir+' sort-sub';
+    } else if(k===sortKey && !sortSubKey){
+      th.className='sort-'+sortDir;
+    } else {
+      th.className='';
+    }
   });
 }
 function sortRecords(arr){
   return [...arr].sort((a,b)=>{
-    // 複合ソート: 社員ID昇順 → 時刻昇順
-    if(sortKey==='empId_time'){
+    // 複合ソート: 社員ID → 時刻
+    if(sortKey==='empId' && sortSubKey==='time'){
       const idCmp=(a.empId||'').localeCompare(b.empId||'','ja');
-      if(idCmp!==0) return idCmp;
+      if(idCmp!==0) return sortDir==='asc'?idCmp:-idCmp;
       const ta=(a.date||'')+(a.time||'');
       const tb=(b.date||'')+(b.time||'');
-      return ta<tb?-1:ta>tb?1:0;
+      const tCmp=ta<tb?-1:ta>tb?1:0;
+      return sortSubDir==='asc'?tCmp:-tCmp;
     }
+    // 単独ソート
     let va,vb;
     if(sortKey==='type'){va=SORT_TYPE_ORDER[a.type]??99;vb=SORT_TYPE_ORDER[b.type]??99;}
     else if(sortKey==='confidence'){va=a.confidence??-1;vb=b.confidence??-1;}
@@ -2671,12 +2696,13 @@ function updateCSVCount(){
 function getCSVRecords(){
   const from=document.getElementById('csvDateFrom').value;
   const to  =document.getElementById('csvDateTo').value;
-  return records.filter(r=>{
+  const raw=records.filter(r=>{
     const d=new Date(r.timestamp||r.date+'T00:00:00');
     const f=from?new Date(from+'T00:00:00'):null;
     const t=to  ?new Date(to  +'T23:59:59'):null;
     return (!f||d>=f)&&(!t||d<=t);
   });
+  return sortRecords(raw); // 表示中のソート順を反映
 }
 
 function execExport(){
