@@ -64,6 +64,17 @@ header{
 .logo-sub{font-size:10px;color:var(--muted);letter-spacing:0.08em;margin-top:2px;}
 .header-clock{font-family:var(--mono);font-size:clamp(14px,2.2vw,26px);color:var(--accent);letter-spacing:0.08em;text-align:right;white-space:nowrap;}
 .header-date{display:none;}
+.header-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
+.header-weather{
+  display:flex;align-items:center;gap:7px;
+  font-size:clamp(11px,1.4vw,14px);color:var(--muted);
+  letter-spacing:0.04em;white-space:nowrap;
+}
+.weather-icon{font-size:clamp(16px,2vw,22px);line-height:1;}
+.weather-temp{font-family:var(--mono);color:var(--accent2);}
+.weather-desc{color:var(--muted);font-size:0.9em;}
+.weather-loading{animation:weatherPulse 1.4s ease-in-out infinite;}
+@keyframes weatherPulse{0%,100%{opacity:.3}50%{opacity:1}}
 
 /* ── Tabs ── */
 .tabs{
@@ -520,6 +531,112 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
 }
 #toast.show{transform:none;opacity:1;}
 
+/* ── 在席メンバーパネル ── */
+#presentPanel{
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:12px;padding:14px 16px;margin-top:16px;
+}
+.present-panel-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;
+}
+.present-panel-title{
+  font-size:12px;font-weight:700;letter-spacing:.08em;
+  color:var(--accent2);text-transform:uppercase;
+}
+.present-tabs{display:flex;gap:4px;}
+.present-tab{
+  font-size:10px;padding:3px 10px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--border2);background:transparent;color:var(--muted);
+  transition:.15s;
+}
+.present-tab.active{
+  background:var(--accent);color:#000;border-color:var(--accent);font-weight:700;
+}
+.present-member-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;
+}
+.present-member-card{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:9px;padding:8px 6px;text-align:center;
+  transition:border-color .15s;
+}
+.present-member-card:hover{border-color:var(--accent2);}
+.present-member-card .pm-avatar{
+  width:36px;height:36px;border-radius:50%;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface2);font-size:18px;flex-shrink:0;
+  border:2px solid transparent;
+}
+.present-member-card.status-in  .pm-avatar{border-color:#10b981;}
+.present-member-card.status-go  .pm-avatar{border-color:#f59e0b;}
+.present-member-card.status-back .pm-avatar{border-color:#10b981;}
+.present-member-card.status-out .pm-avatar{border-color:var(--border2);opacity:.45;}
+.pm-name{font-size:10px;font-weight:600;line-height:1.2;word-break:break-all;}
+.pm-status-badge{
+  font-size:9px;padding:1px 6px;border-radius:20px;font-weight:700;
+}
+.pm-status-badge.s-in{background:rgba(16,185,129,.15);color:#10b981;}
+.pm-status-badge.s-go{background:rgba(245,158,11,.15);color:#f59e0b;}
+.pm-status-badge.s-back{background:rgba(16,185,129,.15);color:#10b981;}
+.pm-status-badge.s-out{background:rgba(150,150,150,.1);color:var(--muted);}
+.pm-time{font-size:9px;color:var(--muted);font-family:var(--mono);}
+.present-empty{text-align:center;color:var(--muted);font-size:12px;padding:16px 0;}
+
+/* 打刻忘れバッジ */
+.forget-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-weight:700;color:var(--red);
+  background:rgba(255,51,85,.12);border:1px solid var(--red);
+  border-radius:20px;padding:2px 8px;
+  animation:forgetPulse 2s ease-in-out infinite;
+}
+@keyframes forgetPulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* ── 時報バナー ── */
+#timeBanner{
+  position:fixed;top:0;left:0;right:0;z-index:10001;
+  display:flex;align-items:center;justify-content:center;gap:16px;
+  padding:0 24px;
+  background:linear-gradient(90deg,#061428 0%,#0d2545 40%,#061428 100%);
+  border-bottom:2px solid var(--accent);
+  box-shadow:0 4px 40px rgba(0,229,255,.3);
+  height:0;overflow:hidden;opacity:0;
+  transition:height .4s cubic-bezier(.34,1.56,.64,1),opacity .3s,padding .4s;
+}
+#timeBanner.show{
+  height:72px;opacity:1;padding-top:0;padding-bottom:0;
+}
+.tb-icon{font-size:36px;}
+.tb-body{display:flex;flex-direction:column;gap:2px;}
+.tb-title{
+  font-size:clamp(15px,2.5vw,22px);font-weight:800;
+  color:var(--accent);letter-spacing:.06em;
+  text-shadow:0 0 18px var(--accent);
+}
+.tb-sub{font-size:12px;color:rgba(255,255,255,.6);}
+/* レア音バナー */
+#rareBanner{
+  position:fixed;top:0;left:0;right:0;z-index:10000;
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  padding:18px 24px;
+  background:linear-gradient(90deg,#1a0a3a 0%,#2d0060 40%,#1a0a3a 100%);
+  border-bottom:2px solid var(--purple);
+  box-shadow:0 4px 40px rgba(176,96,255,.5);
+  transform:translateY(-100%);opacity:0;
+  transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s;
+  pointer-events:none;
+}
+#rareBanner.show{transform:translateY(0);opacity:1;}
+#rareBanner .rb-icon{font-size:32px;animation:rbSpin 1.2s ease-out;}
+#rareBanner .rb-msg{
+  font-size:clamp(14px,2.5vw,20px);font-weight:700;
+  color:#fff;letter-spacing:.06em;text-shadow:0 0 16px var(--purple);
+}
+#rareBanner .rb-sub{font-size:12px;color:rgba(255,255,255,.6);margin-top:2px;}
+@keyframes rbSpin{0%{transform:scale(0) rotate(-180deg)}60%{transform:scale(1.3) rotate(10deg)}100%{transform:scale(1) rotate(0deg)}}
+
 /* ── Modal（カメラ撮影 / QR表示） ── */
 .modal-overlay{
   display:none;position:fixed;inset:0;
@@ -630,9 +747,13 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
       <div class="logo-sub">統合勤怠システム – 顔認証 &amp; QRコード</div>
     </div>
   </div>
-  <div>
+  <div class="header-right">
     <div class="header-clock" id="clock">----年--月--日(-)&nbsp;&nbsp;--:--:--</div>
     <div id="dateDisp" style="display:none"></div>
+    <div class="header-weather" id="weatherDisp">
+      <span class="weather-icon weather-loading" id="weatherIcon">⏳</span>
+      <span class="weather-desc" id="weatherDesc">天気を取得中...</span>
+    </div>
   </div>
 </header>
 
@@ -686,6 +807,25 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
     <div class="log-panel" style="margin-top:16px">
       <div class="log-title">直近の打刻</div>
       <div class="log-list" id="logList"><div class="log-empty">まだ打刻がありません</div></div>
+    </div>
+
+    <!-- 在席メンバーパネル -->
+    <div id="presentPanel">
+      <div class="present-panel-header">
+        <div class="present-panel-title">👥 在席状況</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="forgetAlertBadge" class="forget-badge" style="display:none">⚠️ 打刻忘れ <span id="forgetCount">0</span>名</span>
+          <div class="present-tabs">
+            <button class="present-tab active" onclick="setPresentTab('present')" id="ptab-present">在席</button>
+            <button class="present-tab" onclick="setPresentTab('away')" id="ptab-away">外出中</button>
+            <button class="present-tab" onclick="setPresentTab('forget')" id="ptab-forget">打刻忘れ</button>
+            <button class="present-tab" onclick="setPresentTab('all')" id="ptab-all">全員</button>
+          </div>
+        </div>
+      </div>
+      <div class="present-member-grid" id="presentMemberGrid">
+        <div class="present-empty">まだ打刻がありません</div>
+      </div>
     </div>
   </div>
 
@@ -1074,6 +1214,45 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
             oninput="document.getElementById('cfg-logoScaleVal').textContent=this.value+'%'"/>
           <span id="cfg-logoScaleVal" style="font-family:var(--mono);font-size:12px;color:var(--accent2);min-width:38px;">100%</span>
         </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ───── 勤務時間設定 ───── -->
+  <div class="settings-section">
+    <div class="settings-section-title">⏰ 勤務時間・時報</div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">始業時間</span>
+        <span class="settings-label-sub">設定した時刻に画面で時報を表示します。空欄で無効。</span>
+      </div>
+      <div class="settings-control" style="gap:6px;">
+        <input type="time" id="cfg-timeStart" class="settings-input" value="" style="width:110px;"/>
+        <span style="font-size:11px;color:var(--muted);">🔔 始業</span>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">休憩開始時間</span>
+        <span class="settings-label-sub">設定した時刻に画面で時報を表示します。空欄で無効。</span>
+      </div>
+      <div class="settings-control" style="gap:6px;">
+        <input type="time" id="cfg-timeBreak" class="settings-input" value="" style="width:110px;"/>
+        <span style="font-size:11px;color:var(--muted);">☕ 休憩</span>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">退勤時間</span>
+        <span class="settings-label-sub">設定した時刻に画面で時報を表示します。空欄で無効。</span>
+      </div>
+      <div class="settings-control" style="gap:6px;">
+        <input type="time" id="cfg-timeEnd" class="settings-input" value="" style="width:110px;"/>
+        <span style="font-size:11px;color:var(--muted);">🏁 退勤</span>
       </div>
     </div>
 
@@ -1489,6 +1668,22 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
 </div>
 
 <div id="toast"></div>
+<div id="timeBanner">
+  <span class="tb-icon" id="timeBannerIcon">🔔</span>
+  <div class="tb-body">
+    <div class="tb-title" id="timeBannerTitle">始業時間です</div>
+    <div class="tb-sub" id="timeBannerSub">おはようございます！本日もよろしくお願いします。</div>
+  </div>
+  <span class="tb-icon" id="timeBannerIcon2">🔔</span>
+</div>
+<div id="rareBanner">
+  <span class="rb-icon">🎲</span>
+  <div>
+    <div class="rb-msg" id="rareBannerMsg">🎉 レア音が発生！</div>
+    <div class="rb-sub" id="rareBannerSub"></div>
+  </div>
+  <span class="rb-icon" style="animation-delay:.1s">✨</span>
+</div>
 
 <script>
 // face-api.js + jsQR + qrcode.js を読み込み
@@ -1694,6 +1889,97 @@ function todayStr(){
 }
 
 // ══════════════════════════════
+// 天気取得（Open-Meteo: 無料・APIキー不要）
+// ══════════════════════════════
+const WMO_MAP = {
+  0:  {icon:'☀️',  desc:'快晴'},
+  1:  {icon:'🌤️', desc:'晴れ'},
+  2:  {icon:'⛅',  desc:'曇りがち'},
+  3:  {icon:'☁️',  desc:'曇り'},
+  45: {icon:'🌫️', desc:'霧'},
+  48: {icon:'🌫️', desc:'霧'},
+  51: {icon:'🌦️', desc:'小雨'},
+  53: {icon:'🌧️', desc:'雨'},
+  55: {icon:'🌧️', desc:'強雨'},
+  61: {icon:'🌧️', desc:'雨'},
+  63: {icon:'🌧️', desc:'雨'},
+  65: {icon:'🌧️', desc:'大雨'},
+  71: {icon:'🌨️', desc:'小雪'},
+  73: {icon:'❄️',  desc:'雪'},
+  75: {icon:'❄️',  desc:'大雪'},
+  77: {icon:'🌨️', desc:'あられ'},
+  80: {icon:'🌦️', desc:'にわか雨'},
+  81: {icon:'🌧️', desc:'にわか雨'},
+  82: {icon:'⛈️',  desc:'強いにわか雨'},
+  85: {icon:'🌨️', desc:'にわか雪'},
+  86: {icon:'❄️',  desc:'強いにわか雪'},
+  95: {icon:'⛈️',  desc:'雷雨'},
+  96: {icon:'⛈️',  desc:'雷雨+ひょう'},
+  99: {icon:'⛈️',  desc:'雷雨+ひょう'},
+};
+
+let _weatherCache = null;
+let _weatherFetchedAt = 0;
+
+async function fetchWeather(){
+  // 30分キャッシュ
+  if(_weatherCache && Date.now() - _weatherFetchedAt < 30*60*1000){
+    applyWeather(_weatherCache); return;
+  }
+  const iconEl = document.getElementById('weatherIcon');
+  const descEl = document.getElementById('weatherDesc');
+  if(!iconEl) return;
+
+  if(!navigator.geolocation){
+    iconEl.textContent='📍'; iconEl.classList.remove('weather-loading');
+    descEl.textContent='位置情報非対応';
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const {latitude:lat, longitude:lon} = pos.coords;
+    try{
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,weathercode,windspeed_10m&timezone=auto&forecast_days=1`;
+      const res  = await fetch(url);
+      const data = await res.json();
+      const cur  = data.current;
+      const temp = Math.round(cur.temperature_2m);
+      const code = cur.weathercode;
+      const w    = WMO_MAP[code] ?? {icon:'🌡️', desc:'--'};
+      const cache = {icon:w.icon, desc:w.desc, temp};
+      _weatherCache = cache;
+      _weatherFetchedAt = Date.now();
+      applyWeather(cache);
+    }catch(e){
+      iconEl.textContent='⚠️'; iconEl.classList.remove('weather-loading');
+      descEl.textContent='天気取得失敗';
+    }
+  }, err=>{
+    iconEl.classList.remove('weather-loading');
+    if(err.code===1){
+      iconEl.textContent='📍';
+      descEl.textContent='位置情報が許可されていません';
+    } else {
+      iconEl.textContent='⚠️';
+      descEl.textContent='位置情報エラー';
+    }
+  }, {timeout:10000, maximumAge:1800000});
+}
+
+function applyWeather(w){
+  const iconEl = document.getElementById('weatherIcon');
+  const descEl = document.getElementById('weatherDesc');
+  if(!iconEl) return;
+  iconEl.textContent = w.icon;
+  iconEl.classList.remove('weather-loading');
+  descEl.innerHTML = `${w.desc}&nbsp;<span class="weather-temp">${w.temp}℃</span>`;
+}
+
+// 起動時取得 + 30分ごとに再取得
+fetchWeather();
+setInterval(fetchWeather, 30*60*1000);
+
+// ══════════════════════════════
 // CLOCK
 // ══════════════════════════════
 function tick(){
@@ -1753,7 +2039,7 @@ async function initFaceAPI(){
       document.getElementById('loadingOverlay').style.display='none';
     }, 400);
     await buildMatcher();
-    updateLog();updateStats();renderEmployees();
+    updateLog();updateStats();renderEmployees();renderPresentPanel();
   } catch(e) {
     prog.textContent='❌ モデル読み込みエラー: '+e.message;
     document.getElementById('loadingOverlay').innerHTML+=
@@ -1765,7 +2051,7 @@ async function initFaceAPI(){
           QRモードで続ける →
         </button>
       </div>`;
-    try{ updateLog();updateStats();renderEmployees(); }catch(_){}
+    try{ updateLog();updateStats();renderEmployees();renderPresentPanel(); }catch(_){}
     console.error(e);
   }
 }
@@ -2115,6 +2401,7 @@ async function processAttendance(empId, confidence, type, method){
     return;
   }
 
+  window._lastStampEmpName = emp.name;
   const record={
     id:Date.now(),empId:emp.id,empName:emp.name,dept:emp.dept,
     type,method,
@@ -3192,7 +3479,7 @@ async function saveEditRecord(){
     originalTime:old.time,
   };
   await updateRecordDB(records[idx]);
-  renderRecords();updateLog();updateStats();
+  renderRecords();updateLog();updateStats();renderPresentPanel();
   closeEditModal();
   showToast(`${records[idx].empName}さんの記録を修正しました`);
   playSound('recordOp');
@@ -3206,7 +3493,7 @@ async function deleteRecord(){
   if(!confirm(`${rec.empName}さんの「${TYPE_LABEL[rec.type]}」記録（${rec.date} ${rec.time}）を削除しますか？`))return;
   records=records.filter(r=>r.id!==id);
   await deleteRecordDB(id);
-  renderRecords();updateLog();updateStats();
+  renderRecords();updateLog();updateStats();renderPresentPanel();
   closeEditModal();
   showToast('記録を削除しました');
   playSound('recordOp');
@@ -3512,9 +3799,11 @@ async function playSound(key){
           const decoded = await ctx.decodeAudioData(buf.slice(0));
           const src = ctx.createBufferSource();
           src.buffer = decoded; src.connect(ctx.destination); src.start(0);
+          showRareBanner(_lastStampEmpName||'');
           return;
         }
-        // 未設定なら他の打刻種別の音を流用
+        // 未設定なら他の打刻種別の音を流用（この場合もバナー表示）
+        showRareBanner(_lastStampEmpName||'');
         const others = STAMP_KEYS.filter(k => k !== key);
         playKey = others[Math.floor(Math.random()*others.length)];
       }
@@ -3584,6 +3873,8 @@ async function loadSoundsFromDB(){
         if(rBuf) customSounds['rare'][s]=rBuf;
       }catch(_){}
     }
+    // ロード完了後にUI反映（設定済み状態が「未設定」になる問題の修正）
+    renderRareSoundSlots();
   }catch(e){}
 }
 
@@ -3773,7 +4064,10 @@ const defaultSettings={
   companyName:'',
   companyLogo:'',
   logoScale:100,
-  companyNameScale:100
+  companyNameScale:100,
+  timeStart:'',
+  timeBreak:'',
+  timeEnd:''
 };
 let appSettings={...defaultSettings};
 
@@ -3815,6 +4109,10 @@ function applySettingsToUI(){
     document.getElementById('cfg-rareSoundProbVal').textContent=(+(s.rareSoundProb??10))===0?'無効':(s.rareSoundProb??10)+'%';
   }
   renderRareSoundSlots();
+  ['timeStart','timeBreak','timeEnd'].forEach(k=>{
+    const el=document.getElementById('cfg-'+k);
+    if(el) el.value=appSettings[k]||'';
+  });
   const _cn=document.getElementById('cfg-companyName');
   if(_cn) _cn.value=s.companyName||'';
   const _ls=document.getElementById('cfg-logoScale');
@@ -3862,6 +4160,9 @@ function saveSettings(){
   s.clockFmt=document.getElementById('cfg-clockFmt').value;
   s.resetDelay=parseInt(document.getElementById('cfg-resetDelay').value)||3;
   s.rareSoundProb=+(document.getElementById('cfg-rareSoundProb')?.value??10);
+  s.timeStart = document.getElementById('cfg-timeStart')?.value||'';
+  s.timeBreak = document.getElementById('cfg-timeBreak')?.value||'';
+  s.timeEnd   = document.getElementById('cfg-timeEnd')?.value||'';
   s.companyName=(document.getElementById('cfg-companyName')?.value||'').trim();
   s.logoScale=+(document.getElementById('cfg-logoScale')?.value??100);
   s.companyNameScale=+(document.getElementById('cfg-companyNameScale')?.value??100);
@@ -3941,6 +4242,151 @@ loadSettings();
 // TOAST
 // ══════════════════════════════
 let toastTimer;
+// ══════════════════════════════
+// 在席メンバーパネル
+// ══════════════════════════════
+let _presentTab = 'present'; // present / away / forget / all
+
+function setPresentTab(tab){
+  _presentTab = tab;
+  ['present','away','forget','all'].forEach(t=>{
+    const el = document.getElementById('ptab-'+t);
+    if(el) el.classList.toggle('active', t===tab);
+  });
+  renderPresentPanel();
+}
+
+function renderPresentPanel(){
+  const grid = document.getElementById('presentMemberGrid');
+  if(!grid) return;
+  const today = todayStr();
+  const todayRec = records.filter(r=>r.date===today);
+
+  // 各社員の最新ステータスと最新打刻時刻
+  const lastRec = {}; // empId → record
+  [...todayRec].reverse().forEach(r=>{ lastRec[r.empId]=r; }); // 古い順→最後が最新
+
+  // 打刻忘れ: 出勤記録があるが退勤なし（最新が in or back or go）
+  const forgotIds = new Set(
+    Object.entries(lastRec)
+      .filter(([,r])=>r.type==='in'||r.type==='back'||r.type==='go')
+      .map(([id])=>id)
+  );
+
+  // バッジ更新
+  const badge = document.getElementById('forgetAlertBadge');
+  const fcount = document.getElementById('forgetCount');
+  if(badge){
+    badge.style.display = forgotIds.size>0 ? 'inline-flex' : 'none';
+    if(fcount) fcount.textContent = forgotIds.size;
+  }
+
+  // 表示対象の社員を絞り込み
+  let targets = employees.filter(e=> e.id in lastRec);
+
+  if(_presentTab==='present'){
+    targets = targets.filter(e=>{
+      const t=lastRec[e.id]?.type;
+      return t==='in'||t==='back';
+    });
+  } else if(_presentTab==='away'){
+    targets = targets.filter(e=>lastRec[e.id]?.type==='go');
+  } else if(_presentTab==='forget'){
+    targets = targets.filter(e=>forgotIds.has(e.id));
+  }
+  // 'all' は全員
+
+  if(!targets.length){
+    const msgs={present:'現在在席中のメンバーはいません',away:'外出中のメンバーはいません',forget:'打刻忘れのメンバーはいません',all:'本日まだ打刻がありません'};
+    grid.innerHTML=`<div class="present-empty">${msgs[_presentTab]}</div>`;
+    return;
+  }
+
+  const STATUS_LABEL={in:'在席',go:'外出中',back:'在席',out:'退勤済'};
+  const STATUS_CLS={in:'s-in',go:'s-go',back:'s-back',out:'s-out'};
+
+  grid.innerHTML = targets.map(e=>{
+    const rec = lastRec[e.id];
+    const type = rec?.type||'out';
+    const time = rec?.time||'';
+    const faceImg = e.faceImages?.[0]
+      ? `<img src="${e.faceImages[0]}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>`
+      : `<span style="font-size:18px;">👤</span>`;
+    const isForgot = forgotIds.has(e.id) && type!=='out';
+    return `<div class="present-member-card status-${type}">
+      <div class="pm-avatar">${faceImg}</div>
+      <div class="pm-name">${e.name}</div>
+      <div class="pm-status-badge ${STATUS_CLS[type]}">${STATUS_LABEL[type]}</div>
+      <div class="pm-time">${time}</div>
+      ${isForgot && _presentTab!=='present'&&_presentTab!=='away' ? '<div style="font-size:8px;color:var(--red);margin-top:1px;">⚠退勤未打刻</div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════
+// 時報システム
+// ══════════════════════════════
+const TIME_EVENTS=[
+  {key:'timeStart', icon:'☀️', title:'始業時間です',    sub:'おはようございます！本日もよろしくお願いします。', accent:'var(--accent)'},
+  {key:'timeBreak', icon:'☕', title:'休憩時間です',    sub:'お疲れ様です。ゆっくり休憩してください。',        accent:'#f59e0b'},
+  {key:'timeEnd',   icon:'🏁', title:'退勤時間になりました', sub:'本日もお疲れ様でした！',                    accent:'#10b981'},
+];
+let _timeFiredToday={}; // key→'YYYY-MM-DD' で当日済みフラグ
+let _timeBannerTimer=null;
+
+function checkTimeEvents(){
+  const now=new Date();
+  const hhmm=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const today=todayStr();
+  TIME_EVENTS.forEach(ev=>{
+    const cfg=appSettings[ev.key]||'';
+    if(!cfg) return;
+    if(cfg===hhmm && _timeFiredToday[ev.key]!==today){
+      _timeFiredToday[ev.key]=today;
+      showTimeBanner(ev);
+    }
+  });
+}
+
+function showTimeBanner(ev){
+  const b=document.getElementById('timeBanner');
+  const icon1=document.getElementById('timeBannerIcon');
+  const icon2=document.getElementById('timeBannerIcon2');
+  const title=document.getElementById('timeBannerTitle');
+  const sub=document.getElementById('timeBannerSub');
+  if(!b) return;
+  if(icon1) icon1.textContent=ev.icon;
+  if(icon2) icon2.textContent=ev.icon;
+  if(title){ title.textContent=ev.title; title.style.color=ev.accent; title.style.textShadow=`0 0 18px ${ev.accent}`; }
+  if(sub)   sub.textContent=ev.sub;
+  b.style.borderBottomColor=ev.accent;
+  b.style.boxShadow=`0 4px 40px rgba(0,229,255,.25)`;
+  b.classList.add('show');
+  playSound('in'); // チャイム代わりに打刻音を流用
+  clearTimeout(_timeBannerTimer);
+  _timeBannerTimer=setTimeout(()=>b.classList.remove('show'), 6000);
+}
+
+// tick() に時報チェックを追加
+// レア音バナー表示
+let _rareBannerTimer=null;
+function showRareBanner(empName){
+  const msgs=[
+    '🎉 ラッキー！レア音が鳴った！',
+    '🌟 今日はついてる！レア音発生！',
+    '🎊 おめでとう！レア音ゲット！',
+    '🍀 幸運のレア音！',
+    '⭐ レア音が発生しました！',
+  ];
+  const msg = msgs[Math.floor(Math.random()*msgs.length)];
+  document.getElementById('rareBannerMsg').textContent = msg;
+  document.getElementById('rareBannerSub').textContent = empName ? `${empName}さんの打刻で発生` : '';
+  const b = document.getElementById('rareBanner');
+  b.classList.add('show');
+  clearTimeout(_rareBannerTimer);
+  _rareBannerTimer = setTimeout(()=>b.classList.remove('show'), 3200);
+}
+
 function showToast(msg,isErr=false){
   const t=document.getElementById('toast');
   t.textContent=msg;
