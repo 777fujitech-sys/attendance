@@ -2018,7 +2018,8 @@ function showResultError(msg){
 function updateLog(){
   const renderTo=(listId)=>{
     const list=document.getElementById(listId);if(!list)return;
-    const recent=records.slice(0,15);
+    const today=todayStr();
+    const recent=records.filter(r=>r.date===today).slice(0,15);
     if(!recent.length){list.innerHTML='<div class="log-empty">まだ打刻がありません</div>';return;}
     list.innerHTML=recent.map(r=>{
       const emp=employees.find(e=>e.id===r.empId);
@@ -2303,21 +2304,29 @@ function setSort(key){
   // 社員IDがアクティブな状態で時刻をクリック → 複合ソート
   if(key==='time' && sortKey==='empId'){
     if(sortSubKey==='time'){
-      // 2回目以降: 時刻方向をトグル
-      sortSubDir = sortSubDir==='asc'?'desc':'asc';
+      if(sortSubDir==='asc'){
+        sortSubDir='desc';
+      } else {
+        // 3段階目: デフォルトに戻す
+        sortSubKey=null;
+        sortKey='timestamp';sortDir='desc';
+      }
     } else {
-      // 初回: 複合ソート開始（時刻昇順）
-      sortSubKey = 'time';
-      sortSubDir = 'asc';
+      sortSubKey='time';sortSubDir='asc';
     }
   } else {
-    // 通常ソート（複合解除）
-    sortSubKey = null;
+    // 通常ソート（3段階: 昇順→降順→デフォルト）
+    sortSubKey=null;
     if(sortKey===key){
-      sortDir = sortDir==='asc'?'desc':'asc';
+      if(sortDir==='asc'){
+        sortDir='desc';
+      } else {
+        // 3段階目: デフォルトに戻す（timestamp降順）
+        sortKey='timestamp';sortDir='desc';
+      }
     } else {
-      sortKey = key;
-      sortDir = (key==='empName'||key==='empId') ? 'asc' : 'desc';
+      sortKey=key;
+      sortDir=(key==='empName'||key==='empId')?'asc':'desc';
     }
   }
   renderRecords();
@@ -2379,7 +2388,42 @@ function renderRecords(){
   updateSortIndicators();
   const filtered=getFilteredRecords();
   const tbody=document.getElementById('recordsBody');
-  if(!filtered.length){tbody.innerHTML='<tr><td colspan="9" class="table-empty">該当データなし</td></tr>';return;}
+
+  // 欠勤行の生成: 日付フィルターがあり、名前・種別・方法フィルターが空のとき
+  const df=document.getElementById('filterDate').value;
+  const nf=document.getElementById('filterName').value.toLowerCase();
+  const tf=document.getElementById('filterType').value;
+  const mf=document.getElementById('filterMethod').value;
+  let absentRows=[];
+  if(df && !nf && !tf && !mf && employees.length){
+    const [y,m,d]=df.split('-');
+    const fmt=`${y}/${m}/${d}`;
+    // 過去の日付のみ欠勤表示（今日・未来は打刻が増える可能性があるため表示しない）
+    const todayMid=new Date(); todayMid.setHours(0,0,0,0);
+    const selDate=new Date(Number(y),Number(m)-1,Number(d));
+    if(selDate < todayMid){
+      const activeEmpIds=new Set(records.filter(r=>r.date===fmt).map(r=>r.empId));
+      absentRows=employees
+        .filter(e=>!activeEmpIds.has(e.id))
+        .map(e=>{
+          const faceImg=e.faceImages?.[0]
+            ?`<img src="${e.faceImages[0]}" alt=""/>` :`<span style="font-size:12px">👤</span>`;
+          return `<tr style="opacity:0.6">
+            <td class="mono">${e.id}</td>
+            <td><span class="tbl-avatar">${faceImg}</span>${e.name}</td>
+            <td style="color:var(--muted);font-size:11px">${e.dept}</td>
+            <td><span class="tbl-badge" style="background:rgba(100,100,120,.15);color:#aaa;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">😴 欠勤</span></td>
+            <td>-</td>
+            <td class="mono">-</td>
+            <td class="mono">${fmt}</td>
+            <td class="mono">-</td>
+            <td><span style="color:var(--muted);font-size:11px">-</span></td>
+          </tr>`;
+        });
+    }
+  }
+
+  if(!filtered.length && !absentRows.length){tbody.innerHTML='<tr><td colspan="9" class="table-empty">該当データなし</td></tr>';return;}
   tbody.innerHTML=filtered.map(r=>{
     const emp=employees.find(e=>e.id===r.empId);
     const faceImg=emp?.faceImages?.[0]
@@ -2402,7 +2446,7 @@ function renderRecords(){
       <td class="mono">${r.time}</td>
       <td><button onclick="openEditModal(${r.id})" style="background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.2);border-radius:7px;color:var(--accent);font-size:11px;padding:4px 10px;cursor:pointer;font-family:var(--body)">✏️ 編集</button></td>
     </tr>`;
-  }).join('');
+  }).join('')+absentRows.join('');
 }
 
 function exportCSV(){ openCSVModal(); }
@@ -2702,7 +2746,32 @@ function getCSVRecords(){
     const t=to  ?new Date(to  +'T23:59:59'):null;
     return (!f||d>=f)&&(!t||d<=t);
   });
-  return sortRecords(raw); // 表示中のソート順を反映
+  // 欠勤行を生成（過去の日付のみ）
+  const absentRecords=[];
+  const todayMid=new Date(); todayMid.setHours(0,0,0,0);
+  // 対象期間の各日付を列挙
+  if(from && to && employees.length){
+    const fDate=new Date(from+'T00:00:00');
+    const tDate=new Date(to+'T00:00:00');
+    for(let cur=new Date(fDate); cur<todayMid && cur<=tDate; cur.setDate(cur.getDate()+1)){
+      const yyyy=cur.getFullYear();
+      const mm=String(cur.getMonth()+1).padStart(2,'0');
+      const dd=String(cur.getDate()).padStart(2,'0');
+      const fmt=`${yyyy}/${mm}/${dd}`;
+      const activeEmpIds=new Set(records.filter(r=>r.date===fmt).map(r=>r.empId));
+      employees.forEach(e=>{
+        if(!activeEmpIds.has(e.id)){
+          absentRecords.push({
+            _absent:true,
+            empId:e.id, empName:e.name, dept:e.dept,
+            type:'absent', method:'-', confidence:null,
+            date:fmt, time:'-', timestamp:fmt+'T00:00:00'
+          });
+        }
+      });
+    }
+  }
+  return sortRecords(raw).concat(absentRecords);
 }
 
 function execExport(){
@@ -2722,10 +2791,10 @@ function execExcel(){
   const headers=['社員ID','氏名','部署','種別','認証方式','信頼度(%)','日付','時刻'];
   const rows=filtered.map(r=>[
     r.empId, r.empName, r.dept,
-    TYPE_LABEL[r.type]||r.type,
-    r.method==='face'?'顔認証':r.method==='manual'?'手動修正':'QRコード',
-    r.confidence??'',
-    r.date, r.time
+    r._absent?'欠勤':(TYPE_LABEL[r.type]||r.type),
+    r._absent?'-':(r.method==='face'?'顔認証':r.method==='manual'?'手動修正':'QRコード'),
+    r._absent?'':(r.confidence??''),
+    r.date, r._absent?'-':r.time
   ]);
 
   const wsData=[headers,...rows];
@@ -2765,9 +2834,9 @@ function execCSV(){
   const BOM='\uFEFF';
   const head='社員ID,氏名,部署,種別,認証方式,信頼度(%),日付,時刻\n';
   const rows=filtered.map(r=>
-    r.empId+',"'+r.empName+'",'+r.dept+','+TYPE_LABEL[r.type]+','
-    +(r.method==='face'?'顔認証':r.method==='manual'?'手動修正':'QRコード')+','
-    +(r.confidence??'')+','+r.date+','+r.time
+    r.empId+',"'+r.empName+'",'+r.dept+','+(r._absent?'欠勤':TYPE_LABEL[r.type])+','
+    +(r._absent?'-':(r.method==='face'?'顔認証':r.method==='manual'?'手動修正':'QRコード'))+','
+    +(r._absent?'':(r.confidence??''))+','+r.date+','+(r._absent?'-':r.time)
   ).join('\n');
   const blob=new Blob([BOM+head+rows],{type:'text/csv;charset=utf-8;'});
   const fname=(from===to?'勤怠記録_'+from:'勤怠記録_'+from+'_'+to)+'.csv';
@@ -3268,9 +3337,13 @@ function showToast(msg,isErr=false){
   toastTimer=setTimeout(()=>t.classList.remove('show'),3500);
 }
 
-// 初期化 - 日付フィルターは常に今日
+// 初期化 - 日付フィルターは常に今日（ローカル時刻で取得してタイムゾーンずれを防ぐ）
 function setTodayFilter(){
-  document.getElementById('filterDate').value=new Date().toISOString().split('T')[0];
+  const n=new Date();
+  const yyyy=n.getFullYear();
+  const mm=String(n.getMonth()+1).padStart(2,'0');
+  const dd=String(n.getDate()).padStart(2,'0');
+  document.getElementById('filterDate').value=`${yyyy}-${mm}-${dd}`;
 }
 setTodayFilter();
 // タブ切替時も今日の日付にリセット
