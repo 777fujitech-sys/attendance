@@ -4371,20 +4371,22 @@ function showTimeBanner(ev){
 // レア音バナー表示
 let _rareBannerTimer=null;
 function showRareBanner(empName){
+  const n = empName || '貴様';
   const msgs=[
-    '🎉 ラッキー！レア音が鳴った！',
-    '🌟 今日はついてる！レア音発生！',
-    '🎊 おめでとう！レア音ゲット！',
-    '🍀 幸運のレア音！',
-    '⭐ レア音が発生しました！',
+    `💀 ${n}よ…お前はもう打刻している`,
+    `👊 我が打刻に一片の悔いなし`,
+    `🌸 ${n}…お前、なかなか傾いておるな`,
+    `🐴 松風も${n}の打刻に驚いておるわ`,
+    `🔴 ${n}、逃げちゃダメだ…打刻しちゃダメだ…でも打刻した`
+    `🧬 ${n}のシンクロ率…400%を超えました`
   ];
   const msg = msgs[Math.floor(Math.random()*msgs.length)];
   document.getElementById('rareBannerMsg').textContent = msg;
-  document.getElementById('rareBannerSub').textContent = empName ? `${empName}さんの打刻で発生` : '';
+  document.getElementById('rareBannerSub').textContent = empName ? `${empName}さんの打刻でレア音発生` : 'レア音発生';
   const b = document.getElementById('rareBanner');
   b.classList.add('show');
   clearTimeout(_rareBannerTimer);
-  _rareBannerTimer = setTimeout(()=>b.classList.remove('show'), 3200);
+  _rareBannerTimer = setTimeout(()=>b.classList.remove('show'), 4000);
 }
 
 function showToast(msg,isErr=false){
