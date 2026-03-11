@@ -840,6 +840,7 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
     <div class="emp-section-title" style="margin-bottom:0">登録済み社員</div>
     <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm" onclick="openBulkQRModal()">📲 QR一括保存</button>
       <button class="btn btn-secondary btn-sm" onclick="backupEmployees()">⬇ バックアップ</button>
       <label class="btn btn-secondary btn-sm" style="cursor:pointer">
         ⬆ 復元
@@ -1029,6 +1030,53 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
         <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="cfg-showFaceStatus" checked style="accent-color:var(--accent);"> 顔認証状態</label>
       </div>
     </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">会社名（QRカード印字用）</span>
+        <span class="settings-label-sub">QRコード保存時のカードに印字されます。空欄の場合は表示なし。</span>
+      </div>
+      <div class="settings-control" style="flex-direction:column;align-items:flex-start;gap:8px;">
+        <input type="text" id="cfg-companyName" class="settings-input" placeholder="例：株式会社○○" style="width:200px;"/>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;color:var(--muted);white-space:nowrap;">文字サイズ</span>
+          <input type="range" id="cfg-companyNameScale" min="50" max="200" step="5" value="100"
+            style="width:110px;accent-color:var(--accent);"
+            oninput="document.getElementById('cfg-companyNameScaleVal').textContent=this.value+'%'"/>
+          <span id="cfg-companyNameScaleVal" style="font-family:var(--mono);font-size:12px;color:var(--accent2);min-width:38px;">100%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">会社ロゴ（QRカード印字用）</span>
+        <span class="settings-label-sub">QRコード保存時のカード上部に表示されます。PNG/JPG推奨。空欄の場合は表示なし。</span>
+      </div>
+      <div class="settings-control" style="flex-direction:column;align-items:flex-start;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:56px;height:56px;background:var(--bg);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+            <img id="cfg-companyLogoPreview" style="width:100%;height:100%;object-fit:contain;display:none;" alt="ロゴ"/>
+            <span id="cfg-companyLogoHint" style="font-size:10px;color:var(--muted);text-align:center;line-height:1.3;">未設定</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:11px;">
+              📁 画像を選択
+              <input type="file" accept="image/*" style="display:none" onchange="loadCompanyLogoFile(event)"/>
+            </label>
+            <button class="btn btn-danger btn-sm" style="font-size:11px;" onclick="clearCompanyLogo()">✕ 削除</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;color:var(--muted);white-space:nowrap;">ロゴサイズ</span>
+          <input type="range" id="cfg-logoScale" min="20" max="200" step="5" value="100"
+            style="width:110px;accent-color:var(--accent);"
+            oninput="document.getElementById('cfg-logoScaleVal').textContent=this.value+'%'"/>
+          <span id="cfg-logoScaleVal" style="font-family:var(--mono);font-size:12px;color:var(--accent2);min-width:38px;">100%</span>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ───── その他設定 ───── -->
@@ -1114,6 +1162,112 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
 </div>
 
 </div><!-- /main -->
+
+<!-- QR一括保存Modal -->
+<div class="modal-overlay" id="bulkQRModal">
+  <div class="modal" style="max-width:560px;width:95%;max-height:92vh;overflow-y:auto">
+    <div class="modal-title">📲 QRコード一括保存</div>
+    <div class="modal-sub" style="color:var(--muted);font-size:11px;margin-bottom:18px">
+      選択した社員のQRコードをまとめてZIPファイルでダウンロードします
+    </div>
+
+    <!-- 全選択 / 解除 -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;font-weight:600">
+        <input type="checkbox" id="bulkQRSelectAll" onchange="toggleBulkQRAll(this.checked)"
+          style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer"/>
+        すべて選択 / 解除
+      </label>
+      <span id="bulkQRSelectedCount" style="font-size:11px;color:var(--muted);margin-left:auto"></span>
+    </div>
+
+    <!-- 社員リスト -->
+    <div id="bulkQRList" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;margin-bottom:16px;padding-right:4px"></div>
+
+    <!-- 出力形式 -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;margin-bottom:10px">出力サイズ</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+          <input type="radio" name="bulkQRSize" value="200" checked style="accent-color:var(--accent)"/> 200px（標準）
+        </label>
+        <label style="display:flex;align-items:center;gap=6px;cursor:pointer;font-size:12px">
+          <input type="radio" name="bulkQRSize" value="300" style="accent-color:var(--accent)"/> 300px（大）
+        </label>
+        <label style="display:flex;align-items:center;gap=6px;cursor:pointer;font-size:12px">
+          <input type="radio" name="bulkQRSize" value="400" style="accent-color:var(--accent)"/> 400px（特大）
+        </label>
+      </div>
+    </div>
+
+    <!-- 進捗 -->
+    <div id="bulkQRProgressWrap" style="display:none;margin-bottom:14px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px" id="bulkQRProgressTxt">生成中...</div>
+      <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+        <div id="bulkQRProgressBar" style="height:100%;background:var(--accent);width:0%;transition:width .2s;border-radius:2px"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeBulkQRModal()">キャンセル</button>
+      <button class="btn btn-primary" id="bulkQRDownloadBtn" onclick="execBulkQRDownload()">
+        ⬇ ZIPでダウンロード
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 社員編集Modal -->
+<div class="modal-overlay" id="editEmpModal">
+  <div class="modal" style="max-width:540px;width:95%;max-height:90vh;overflow-y:auto">
+    <div class="modal-title">✏️ 社員情報を編集</div>
+    <div class="modal-sub" style="color:var(--muted);font-size:11px;margin-bottom:18px">社員ID・氏名・部署・顔写真を変更できます</div>
+
+    <input type="hidden" id="editEmpOrigId"/>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div class="form-group">
+        <label style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;display:block;margin-bottom:5px">社員ID</label>
+        <input class="form-input" id="editEmpIdInput" placeholder="EMP001" style="width:100%"/>
+      </div>
+      <div class="form-group">
+        <label style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;display:block;margin-bottom:5px">氏名</label>
+        <input class="form-input" id="editEmpNameInput" placeholder="田中 太郎" style="width:100%"/>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;display:block;margin-bottom:5px">部署</label>
+        <select class="form-input" id="editEmpDeptInput" style="width:100%"></select>
+      </div>
+    </div>
+
+    <!-- 顔写真セクション -->
+    <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;margin-bottom:10px">🤖 顔写真</div>
+
+    <!-- 登録済み写真サムネイル -->
+    <div id="editEmpThumbsWrap" style="display:flex;flex-wrap:wrap;gap:8px;min-height:52px;margin-bottom:12px;padding:10px;background:var(--bg);border:1px dashed var(--border);border-radius:10px;">
+      <span style="font-size:11px;color:var(--muted)" id="editEmpThumbsHint">写真なし</span>
+    </div>
+
+    <!-- 追加ボタン -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
+      <button class="btn btn-capture btn-sm" onclick="openEditEmpCapture()">📷 カメラ撮影</button>
+      <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+        📁 ファイル追加
+        <input type="file" accept="image/*" multiple style="display:none" onchange="addEditEmpFiles(event)"/>
+      </label>
+      <button class="btn btn-danger btn-sm" onclick="clearAllEditEmpFaces()">🗑 全写真削除</button>
+    </div>
+
+    <div style="background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.15);border-radius:10px;padding:10px 14px;font-size:11px;color:var(--muted);margin-bottom:18px">
+      💡 写真のサムネイルの <strong style="color:var(--red)">✕</strong> を押すと個別に削除できます。3〜5枚が推奨です。
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeEditEmpModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveEditEmp()">💾 保存</button>
+    </div>
+  </div>
+</div>
 
 <!-- カメラキャプチャModal -->
 <div class="modal-overlay" id="captureModal">
@@ -1374,6 +1528,10 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
   const qr=document.createElement('script');
   qr.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
   document.head.appendChild(qr);
+
+  const jz=document.createElement('script');
+  jz.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+  document.head.appendChild(jz);
 })();
 
 // ══════════════════════════════
@@ -2088,6 +2246,7 @@ function renderEmployees(){
       <div class="face-status ${faceOk?'ok':'ng'}">${faceOk?`🤖 顔登録済み（${e.faceImages.length}枚）`:'🤖 顔未登録'}</div>
       <div class="emp-btn-row">
         <button class="emp-qr-btn" onclick="showQR('${e.id}')">📱 QR表示</button>
+        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="openEditEmpModal('${e.id}')">✏️ 編集</button>
         <button class="btn btn-danger btn-sm" style="flex:1" onclick="deleteEmployee('${e.id}')">🗑 削除</button>
       </div>
     </div>`;
@@ -2118,6 +2277,176 @@ async function deleteEmployee(id){
   employees=employees.filter(e=>e.id!==id);
   await deleteEmployeeDB(id);
   await buildMatcher();renderEmployees();
+}
+
+// ══════════════════════════════
+// 社員情報 編集Modal
+// ══════════════════════════════
+let editEmpFaces = [];   // 編集中の顔写真配列（DataURL）
+let editEmpCaptureStream = null;
+
+function openEditEmpModal(empId){
+  const emp = employees.find(e=>e.id===empId);
+  if(!emp) return;
+
+  // フォームに現在値をセット
+  document.getElementById('editEmpOrigId').value   = emp.id;
+  document.getElementById('editEmpIdInput').value  = emp.id;
+  document.getElementById('editEmpNameInput').value= emp.name;
+
+  // 部署セレクトを現在の設定に同期
+  const deptSel = document.getElementById('editEmpDeptInput');
+  deptSel.innerHTML = '';
+  const lines = appSettings.depts.split('\n').map(s=>s.trim()).filter(Boolean);
+  lines.forEach(d=>{
+    const opt=document.createElement('option');
+    opt.textContent=d;
+    if(d===emp.dept) opt.selected=true;
+    deptSel.appendChild(opt);
+  });
+  // 登録部署が現在リストにない場合も選択肢に追加
+  if(!lines.includes(emp.dept)){
+    const opt=document.createElement('option');
+    opt.textContent=emp.dept; opt.selected=true;
+    deptSel.insertBefore(opt, deptSel.firstChild);
+  }
+
+  // 顔写真をコピー
+  editEmpFaces = [...(emp.faceImages||[])];
+  renderEditEmpThumbs();
+
+  document.getElementById('editEmpModal').classList.add('open');
+}
+
+function closeEditEmpModal(){
+  document.getElementById('editEmpModal').classList.remove('open');
+  editEmpFaces=[];
+  // キャプチャストリームが残っていれば停止
+  if(editEmpCaptureStream){editEmpCaptureStream.getTracks().forEach(t=>t.stop());editEmpCaptureStream=null;}
+}
+
+function renderEditEmpThumbs(){
+  const wrap = document.getElementById('editEmpThumbsWrap');
+  if(!editEmpFaces.length){
+    wrap.innerHTML='<span style="font-size:11px;color:var(--muted)" id="editEmpThumbsHint">写真なし</span>';
+    return;
+  }
+  wrap.innerHTML = editEmpFaces.map((src,i)=>`
+    <div style="position:relative;width:64px;height:64px;flex-shrink:0">
+      <img src="${src}" style="width:100%;height:100%;object-fit:cover;border-radius:9px;border:1px solid var(--border)"/>
+      <button onclick="removeEditEmpFace(${i})"
+        style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;
+               background:var(--red);color:#fff;border:none;font-size:10px;cursor:pointer;
+               display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
+    </div>`).join('');
+}
+
+function removeEditEmpFace(i){
+  editEmpFaces.splice(i,1);
+  renderEditEmpThumbs();
+}
+
+function clearAllEditEmpFaces(){
+  if(!editEmpFaces.length) return;
+  if(!confirm('登録済みの顔写真をすべて削除しますか？')) return;
+  editEmpFaces=[];
+  renderEditEmpThumbs();
+}
+
+function addEditEmpFiles(e){
+  const files=[...e.target.files];
+  files.forEach(f=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{editEmpFaces.push(ev.target.result);renderEditEmpThumbs();};
+    reader.readAsDataURL(f);
+  });
+  e.target.value='';
+}
+
+// カメラ撮影（編集モーダル用：簡易インライン）
+async function openEditEmpCapture(){
+  // 既存のcaptureModalを使い回す：終了後に写真をeditEmpFacesに追加
+  capturedShots=[];
+  document.getElementById('captureCount').textContent='0';
+  document.getElementById('capturedThumbs').innerHTML='<span class="thumb-hint">撮影した写真がここに表示されます</span>';
+  // 確定ボタンを差し替え（一時的に社員編集用コールバック）
+  _editEmpCaptureMode = true;
+  document.getElementById('captureModal').classList.add('open');
+  try{
+    editEmpCaptureStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
+    document.getElementById('captureVideo').srcObject=editEmpCaptureStream;
+    await document.getElementById('captureVideo').play();
+  }catch(ex){showToast('カメラを起動できません: '+ex.message,true);}
+}
+
+let _editEmpCaptureMode = false;
+
+// captureModal の「使用する」ボタンを intercept
+const _origConfirmCaptures = window.confirmCaptures;
+window.confirmCaptures = function(){
+  if(_editEmpCaptureMode){
+    if(!capturedShots.length){showToast('写真を撮影してください',true);return;}
+    editEmpFaces=[...editEmpFaces,...capturedShots];
+    renderEditEmpThumbs();
+    closeCaptureModal();
+    _editEmpCaptureMode=false;
+    showToast(capturedShots.length+'枚の写真を追加しました');
+  } else {
+    _origConfirmCaptures();
+  }
+};
+
+const _origCloseCaptureModal = window.closeCaptureModal;
+window.closeCaptureModal = function(){
+  _editEmpCaptureMode=false;
+  _origCloseCaptureModal();
+};
+
+async function saveEditEmp(){
+  const origId = document.getElementById('editEmpOrigId').value;
+  const newId  = document.getElementById('editEmpIdInput').value.trim().toUpperCase();
+  const newName= document.getElementById('editEmpNameInput').value.trim();
+  const newDept= document.getElementById('editEmpDeptInput').value;
+
+  if(!newId||!newName){showToast('社員IDと氏名は必須です',true);return;}
+
+  // IDが変わった場合、他の社員と重複しないか確認
+  if(newId!==origId && employees.find(e=>e.id===newId)){
+    showToast('その社員IDはすでに使われています',true);return;
+  }
+
+  const idx = employees.findIndex(e=>e.id===origId);
+  if(idx===-1){showToast('社員が見つかりません',true);return;}
+
+  const oldEmp = employees[idx];
+  const updEmp = {...oldEmp, id:newId, name:newName, dept:newDept, faceImages:[...editEmpFaces]};
+
+  // IDが変わった場合：旧IDのDBレコードを削除 → 新IDで保存
+  // 打刻記録も社員名・部署を更新
+  if(newId !== origId){
+    await deleteEmployeeDB(origId);
+    records.forEach(r=>{
+      if(r.empId===origId){r.empId=newId;r.empName=newName;r.dept=newDept;}
+    });
+    for(const r of records.filter(r=>r.empId===newId)) await updateRecordDB(r);
+  } else {
+    // 名前・部署が変わった場合も打刻記録を更新
+    if(oldEmp.name!==newName || oldEmp.dept!==newDept){
+      records.forEach(r=>{
+        if(r.empId===origId){r.empName=newName;r.dept=newDept;}
+      });
+      for(const r of records.filter(r=>r.empId===origId)) await updateRecordDB(r);
+    }
+  }
+
+  employees[idx] = updEmp;
+  await saveEmployee(updEmp);
+  await buildMatcher();
+  renderEmployees();
+  renderRecords();
+  closeEditEmpModal();
+  showToast(`${newName}さんの情報を更新しました`);
+  playSound('recordOp');
 }
 
 // ══════════════════════════════
@@ -2195,34 +2524,294 @@ function showQR(empId){
   tryGenerate(10);
 }
 
-function saveQR(){
-  const canvas=document.getElementById('qrDisplayCanvas');
-  if(!canvas){showToast('QRコードが見つかりません',true);return;}
+async function saveQR(){
   const emp=employees.find(e=>e.id===currentQREmpId);
   const name=emp?emp.name:currentQREmpId;
-  // 余白付きの保存用canvasを作成
-  const pad=20, size=canvas.width+pad*2;
-  const saveCanvas=document.createElement('canvas');
-  saveCanvas.width=size;saveCanvas.height=size+40;
-  const ctx=saveCanvas.getContext('2d');
-  ctx.fillStyle='#ffffff';
-  ctx.fillRect(0,0,saveCanvas.width,saveCanvas.height);
-  ctx.drawImage(canvas,pad,pad);
-  ctx.fillStyle='#333333';
-  ctx.font='bold 13px sans-serif';
-  ctx.textAlign='center';
-  ctx.fillText(name,size/2,size+20);
-  ctx.font='11px monospace';ctx.fillStyle='#666';
-  ctx.fillText(currentQREmpId,size/2,size+36);
-
-  const a=document.createElement('a');
-  a.href=saveCanvas.toDataURL('image/png');
-  a.download=`QR_${currentQREmpId}_${name}.png`;
-  a.click();
-  showToast(`${name}さんのQRコードを保存しました`);
+  try{
+    showToast('QRコードを生成中...');
+    const dataUrl = await generateQRDataURL(currentQREmpId, 300);
+    const a=document.createElement('a');
+    a.href=dataUrl;
+    a.download=`QR_${currentQREmpId}_${name}.png`;
+    a.click();
+    showToast(`${name}さんのQRコードを保存しました`);
+  }catch(e){
+    showToast('QR保存に失敗しました: '+e.message, true);
+  }
 }
 
 function closeQRModal(){document.getElementById('qrModal').classList.remove('open');}
+
+// ══════════════════════════════
+// 会社ロゴ設定
+// ══════════════════════════════
+function loadCompanyLogoFile(e){
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    appSettings.companyLogo=ev.target.result;
+    const img=document.getElementById('cfg-companyLogoPreview');
+    img.src=ev.target.result; img.style.display='block';
+    document.getElementById('cfg-companyLogoHint').style.display='none';
+    try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(appSettings));}catch(_){}
+    showToast('ロゴを設定しました ✓');
+  };
+  reader.readAsDataURL(file);
+  e.target.value='';
+}
+function clearCompanyLogo(){
+  appSettings.companyLogo='';
+  const img=document.getElementById('cfg-companyLogoPreview');
+  img.style.display='none'; img.src='';
+  document.getElementById('cfg-companyLogoHint').style.display='block';
+  try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(appSettings));}catch(_){}
+  showToast('ロゴを削除しました');
+}
+
+// ══════════════════════════════
+// QRコード 一括保存
+// ══════════════════════════════
+function openBulkQRModal(){
+  if(!employees.length){showToast('登録済み社員がいません',true);return;}
+  renderBulkQRList();
+  document.getElementById('bulkQRProgressWrap').style.display='none';
+  document.getElementById('bulkQRDownloadBtn').disabled=false;
+  document.getElementById('bulkQRDownloadBtn').textContent='⬇ ZIPでダウンロード';
+  document.getElementById('bulkQRModal').classList.add('open');
+}
+
+function closeBulkQRModal(){
+  document.getElementById('bulkQRModal').classList.remove('open');
+}
+
+function renderBulkQRList(){
+  const list = document.getElementById('bulkQRList');
+  list.innerHTML = employees.map(e=>{
+    const faceImg = e.faceImages?.[0]
+      ? `<img src="${e.faceImages[0]}" style="width:32px;height:32px;border-radius:6px;object-fit:cover;border:1px solid var(--border)"/>`
+      : `<span style="font-size:20px">👤</span>`;
+    return `<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;
+              background:var(--surface2);border:1px solid var(--border2);border-radius:9px;
+              cursor:pointer;transition:border-color .15s"
+              onmouseover="this.style.borderColor='var(--accent2)'"
+              onmouseout="this.style.borderColor='var(--border2)'">
+      <input type="checkbox" class="bulk-qr-chk" data-id="${e.id}" checked
+        onchange="updateBulkQRCount()"
+        style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0"/>
+      ${faceImg}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${e.name}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${e.id} ／ ${e.dept}</div>
+      </div>
+      <span style="font-size:10px;color:var(--muted);white-space:nowrap">📱 QR</span>
+    </label>`;
+  }).join('');
+  updateBulkQRCount();
+}
+
+function updateBulkQRCount(){
+  const total = document.querySelectorAll('.bulk-qr-chk').length;
+  const checked = document.querySelectorAll('.bulk-qr-chk:checked').length;
+  document.getElementById('bulkQRSelectedCount').textContent = `${checked} / ${total} 名選択中`;
+  document.getElementById('bulkQRSelectAll').checked = checked === total;
+  document.getElementById('bulkQRSelectAll').indeterminate = checked > 0 && checked < total;
+}
+
+function toggleBulkQRAll(checked){
+  document.querySelectorAll('.bulk-qr-chk').forEach(c=>c.checked=checked);
+  updateBulkQRCount();
+}
+
+// QRコードをCanvasに描画してDataURL取得（Promise）
+// レイアウト（上→下）:
+//   [会社ロゴ]（設定あり時）
+//   [会社名]（設定あり時）
+//   ─────────
+//   [QRコード]
+//   ─────────
+//   氏名（大）
+//   社員ID ／ 部署
+function generateQRDataURL(empId, size){
+  return new Promise(async (resolve, reject)=>{
+    const emp = employees.find(e=>e.id===empId);
+    const name = emp ? emp.name : empId;
+    const dept = emp ? emp.dept : '';
+    const companyName  = (appSettings.companyName||'').trim();
+    const companyLogo  = appSettings.companyLogo||'';
+    const logoScale    = (appSettings.logoScale??100) / 100;
+    const nameScale    = (appSettings.companyNameScale??100) / 100;
+
+    const pad   = Math.round(size * 0.08);
+    const cw    = size + pad*2;  // canvas width
+
+    // ヘッダー高さ計算（スケール反映）
+    const logoH      = companyLogo ? Math.round(size * 0.22 * logoScale) : 0;
+    const logoMargin = companyLogo ? Math.round(size*0.04) : 0;
+    const compNameH  = companyName ? Math.round(size * 0.085 * nameScale) : 0;
+    const compNameMargin = companyName ? Math.round(size*0.03) : 0;
+    const dividerH   = (companyName||companyLogo) ? Math.round(size*0.015) : 0;
+    const dividerMargin  = (companyName||companyLogo) ? Math.round(size*0.04) : 0;
+    const headerH    = logoH + logoMargin + compNameH + compNameMargin + dividerH + dividerMargin;
+
+    // フッター
+    const nameH      = Math.round(size*0.085);
+    const nameMargin = Math.round(size*0.025);
+    const subH       = Math.round(size*0.065);
+    const subMargin  = Math.round(size*0.02);
+    const footerH    = dividerH + dividerMargin + nameH + nameMargin + subH + subMargin + pad;
+
+    const ch = pad + headerH + size + footerH;
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+
+    // 背景
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cw, ch);
+
+    let y = pad;
+
+    // ── 会社ロゴ ──
+    if(companyLogo){
+      await new Promise(res=>{
+        const img=new Image();
+        img.onload=()=>{
+          const maxW=cw - pad*2, maxH=logoH;
+          const scale=Math.min(maxW/img.width, maxH/img.height, 1);
+          const dw=img.width*scale, dh=img.height*scale;
+          ctx.drawImage(img, (cw-dw)/2, y + (logoH-dh)/2, dw, dh);
+          res();
+        };
+        img.onerror=()=>res();
+        img.src=companyLogo;
+      });
+      y += logoH + logoMargin;
+    }
+
+    // ── 会社名 ──
+    if(companyName){
+      const fs = Math.round(size * 0.072 * nameScale);
+      ctx.font = `bold ${fs}px sans-serif`;
+      ctx.fillStyle = '#111111';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(companyName, cw/2, y + compNameH/2);
+      y += compNameH + compNameMargin;
+    }
+
+    // ── 区切り線（ヘッダーあり時） ──
+    if(companyName || companyLogo){
+      ctx.strokeStyle = '#dddddd';
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad, y); ctx.lineTo(cw-pad, y);
+      ctx.stroke();
+      y += dividerH + dividerMargin;
+    }
+
+    // ── QR コード ──
+    const qrY = y;
+    await new Promise((res, rej)=>{
+      if(typeof QRCode !== 'undefined'){
+        const qc = document.createElement('canvas');
+        qc.width = size; qc.height = size;
+        QRCode.toCanvas(qc, empId, {
+          width:size, margin:2,
+          color:{dark:'#000000',light:'#ffffff'}
+        }, err=>{
+          if(err){rej(err);return;}
+          ctx.drawImage(qc, pad, qrY);
+          res();
+        });
+      } else {
+        const img=new Image(); img.crossOrigin='anonymous';
+        img.onload=()=>{ ctx.drawImage(img, pad, qrY, size, size); res(); };
+        img.onerror=()=>rej(new Error('QR生成失敗'));
+        img.src=`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(empId)}&format=png&margin=2`;
+      }
+    });
+    y = qrY + size;
+
+    // ── 区切り線（フッター） ──
+    y += dividerMargin;
+    ctx.strokeStyle = '#dddddd'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(cw-pad, y); ctx.stroke();
+    y += dividerH + dividerMargin;
+
+    // ── 氏名 ──
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#111111';
+    const nameFs = Math.round(size*0.075);
+    ctx.font = `bold ${nameFs}px sans-serif`;
+    ctx.fillText(name, cw/2, y + nameH/2);
+    y += nameH + nameMargin;
+
+    // ── 社員ID ／ 部署 ──
+    const subFs = Math.round(size*0.058);
+    ctx.font = `${subFs}px monospace`;
+    ctx.fillStyle = '#555555';
+    const subTxt = dept ? `${empId}  ／  ${dept}` : empId;
+    ctx.fillText(subTxt, cw/2, y + subH/2);
+
+    resolve(canvas.toDataURL('image/png'));
+  });
+}
+
+async function execBulkQRDownload(){
+  const checked = [...document.querySelectorAll('.bulk-qr-chk:checked')].map(c=>c.dataset.id);
+  if(!checked.length){showToast('社員を1名以上選択してください',true);return;}
+  if(!window.JSZip){showToast('ZIPライブラリを読み込み中です。少し待ってから再試行してください',true);return;}
+
+  const size = parseInt(document.querySelector('input[name="bulkQRSize"]:checked').value)||200;
+  const btn  = document.getElementById('bulkQRDownloadBtn');
+  const progWrap = document.getElementById('bulkQRProgressWrap');
+  const progTxt  = document.getElementById('bulkQRProgressTxt');
+  const progBar  = document.getElementById('bulkQRProgressBar');
+
+  btn.disabled = true;
+  progWrap.style.display = 'block';
+  progBar.style.width = '0%';
+
+  const zip = new JSZip();
+  const folder = zip.folder('QRコード一括');
+
+  for(let i=0;i<checked.length;i++){
+    const empId = checked[i];
+    const emp   = employees.find(e=>e.id===empId);
+    const name  = emp ? emp.name : empId;
+    progTxt.textContent = `生成中 ${i+1}/${checked.length}：${name}`;
+    progBar.style.width = Math.round((i/checked.length)*100)+'%';
+    try{
+      const dataUrl = await generateQRDataURL(empId, size);
+      const base64  = dataUrl.split(',')[1];
+      folder.file(`QR_${empId}_${name}.png`, base64, {base64:true});
+    }catch(e){
+      console.warn('QR生成スキップ:', empId, e);
+    }
+    // 少し待機してUIをブロックしない
+    await new Promise(r=>setTimeout(r,30));
+  }
+
+  progTxt.textContent = 'ZIPを作成中...';
+  progBar.style.width = '95%';
+
+  const blob = await zip.generateAsync({type:'blob'});
+  const n = new Date();
+  const dateStr = `${n.getFullYear()}${String(n.getMonth()+1).padStart(2,'0')}${String(n.getDate()).padStart(2,'0')}`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `QRコード一括_${dateStr}.zip`;
+  a.click();
+
+  progBar.style.width = '100%';
+  progTxt.textContent = `完了！ ${checked.length}名分のQRコードをダウンロードしました`;
+  btn.disabled = false;
+  btn.textContent = '✅ 完了';
+  showToast(`${checked.length}名分のQRコードをZIPで保存しました`);
+}
 
 // ══════════════════════════════
 // 顔写真 – ファイル読み込み
@@ -3180,7 +3769,11 @@ const defaultSettings={
   timeout:60, clockFmt:'full', resetDelay:3,
   theme:{accent:'#00e5ff',accent2:'#0099bb'},
   adminPw:'0000',
-  rareSoundProb:10
+  rareSoundProb:10,
+  companyName:'',
+  companyLogo:'',
+  logoScale:100,
+  companyNameScale:100
 };
 let appSettings={...defaultSettings};
 
@@ -3222,6 +3815,23 @@ function applySettingsToUI(){
     document.getElementById('cfg-rareSoundProbVal').textContent=(+(s.rareSoundProb??10))===0?'無効':(s.rareSoundProb??10)+'%';
   }
   renderRareSoundSlots();
+  const _cn=document.getElementById('cfg-companyName');
+  if(_cn) _cn.value=s.companyName||'';
+  const _ls=document.getElementById('cfg-logoScale');
+  if(_ls){_ls.value=s.logoScale??100;document.getElementById('cfg-logoScaleVal').textContent=(s.logoScale??100)+'%';}
+  const _ns=document.getElementById('cfg-companyNameScale');
+  if(_ns){_ns.value=s.companyNameScale??100;document.getElementById('cfg-companyNameScaleVal').textContent=(s.companyNameScale??100)+'%';}
+  const _clPreview=document.getElementById('cfg-companyLogoPreview');
+  if(_clPreview){
+    if(s.companyLogo){
+      _clPreview.src=s.companyLogo;
+      _clPreview.style.display='block';
+      document.getElementById('cfg-companyLogoHint').style.display='none';
+    } else {
+      _clPreview.style.display='none';
+      document.getElementById('cfg-companyLogoHint').style.display='block';
+    }
+  }
 }
 
 function applySettingsToApp(){
@@ -3252,6 +3862,10 @@ function saveSettings(){
   s.clockFmt=document.getElementById('cfg-clockFmt').value;
   s.resetDelay=parseInt(document.getElementById('cfg-resetDelay').value)||3;
   s.rareSoundProb=+(document.getElementById('cfg-rareSoundProb')?.value??10);
+  s.companyName=(document.getElementById('cfg-companyName')?.value||'').trim();
+  s.logoScale=+(document.getElementById('cfg-logoScale')?.value??100);
+  s.companyNameScale=+(document.getElementById('cfg-companyNameScale')?.value??100);
+  // companyLogoはloadCompanyLogoFile()で直接保存するためここでは触らない
   // CONFIGに動的反映
   window._SCAN_COOLDOWN_MS=s.scanCooldown*1000;
   window._QR_COOLDOWN_MS=s.qrCooldown*1000;
