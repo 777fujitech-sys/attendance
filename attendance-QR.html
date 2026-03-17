@@ -63,7 +63,6 @@ header{
 .logo-mark{font-family:var(--display);font-size:13px;font-weight:900;color:var(--accent);letter-spacing:0.15em;}
 .logo-sub{font-size:10px;color:var(--muted);letter-spacing:0.08em;margin-top:2px;}
 .header-clock{font-family:var(--mono);font-size:clamp(14px,2.2vw,26px);color:var(--accent);letter-spacing:0.08em;text-align:right;white-space:nowrap;}
-.header-date{display:none;}
 .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
 .header-weather{
   display:flex;align-items:center;gap:7px;
@@ -718,8 +717,6 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
   .scan-layout{grid-template-columns:1fr;}
   .scan-top-right{display:contents;}
   .scan-bottom{grid-column:1;}
-}
-@media(max-width:800px){
   .emp-add-grid{grid-template-columns:1fr 1fr;}
   .action-btn-grid{grid-template-columns:1fr 1fr;}
   .main{padding:12px;}
@@ -979,6 +976,20 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
   <!-- ───── 打刻サウンド設定 ───── -->
   <div class="settings-section">
     <div class="settings-section-title">🔊 打刻サウンド</div>
+
+    <div class="settings-row">
+      <div class="settings-label">
+        <span class="settings-label-main">マスターボリューム</span>
+        <span class="settings-label-sub">すべての効果音の音量を一括調整します</span>
+      </div>
+      <div class="settings-control" style="display:flex;align-items:center;gap:8px;">
+        <input type="range" id="cfg-masterVolume" min="0" max="100" step="5" value="100"
+          style="width:100px;accent-color:var(--accent);"
+          oninput="document.getElementById('cfg-masterVolumeVal').textContent=this.value+'%';applyMasterVolume(+this.value);">
+        <span id="cfg-masterVolumeVal" style="font-family:var(--mono);font-size:13px;color:var(--accent2);min-width:40px;text-align:right;">100%</span>
+      </div>
+    </div>
+
     <p style="font-size:11px;color:var(--muted);margin-bottom:14px;">MP3・WAV・OGG等に対応。設定した音はブラウザ内に保存されます。<br>▶ 試聴 ／ 📁 カスタム音に変更 ／ ✕ デフォルト音に戻す</p>
     <div id="soundCardGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
     </div>
@@ -1174,6 +1185,17 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
       </div>
     </div>
 
+    <div class="settings-row" style="border-bottom:none;">
+      <div class="settings-label">
+        <span class="settings-label-main">バナー表示時間</span>
+        <span class="settings-label-sub">時報ポップアップを何秒間表示するか</span>
+      </div>
+      <div class="settings-control" style="display:flex;align-items:center;gap:8px;">
+        <input type="number" id="cfg-timeBannerDuration" class="settings-input" value="6" min="2" max="30" style="width:70px;">
+        <span class="settings-unit">秒</span>
+      </div>
+    </div>
+
   </div>
 
   <!-- ───── その他設定 ───── -->
@@ -1208,30 +1230,7 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
       </div>
     </div>
 
-    <div class="settings-row">
-      <div class="settings-label">
-        <span class="settings-label-main">時計の表示フォーマット</span>
-        <span class="settings-label-sub">ヘッダーの時計表示形式</span>
-      </div>
-      <div class="settings-control">
-        <select id="cfg-clockFmt" class="settings-select" style="width:180px;">
-          <option value="full">YYYY年MM月DD日(曜) HH:MM:SS</option>
-          <option value="short">MM/DD(曜) HH:MM:SS</option>
-          <option value="time">HH:MM:SS のみ</option>
-        </select>
-      </div>
-    </div>
 
-    <div class="settings-row">
-      <div class="settings-label">
-        <span class="settings-label-main">打刻完了後の自動リセット</span>
-        <span class="settings-label-sub">打刻成功後、N秒で打刻画面に戻る</span>
-      </div>
-      <div class="settings-control" style="display:flex;align-items:center;gap:8px;">
-        <input type="number" id="cfg-resetDelay" class="settings-input" value="3" min="1" max="30" style="width:70px;">
-        <span class="settings-unit">秒</span>
-      </div>
-    </div>
 
     <div class="settings-row">
       <div class="settings-label">
@@ -1786,7 +1785,11 @@ async function migrateFromLocalStorage(){
 }
 
 function todayStr(){
-  return new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit'});
+  const n=new Date();
+  const y=n.getFullYear();
+  const m=String(n.getMonth()+1).padStart(2,'0');
+  const d=String(n.getDate()).padStart(2,'0');
+  return `${y}/${m}/${d}`;
 }
 
 // ══════════════════════════════
@@ -2003,23 +2006,13 @@ function qrScanLoop(){
             recognizing = true;
             processQR(empId);
             // 3秒後にスキャン再開
-            setTimeout(()=>{ recognizing = false; resetResultCard(); }, (appSettings.resetDelay||3)*1000);
+            setTimeout(()=>{ recognizing = false; }, (appSettings.qrCooldown||6)*1000);
           }
         }
       }
     }catch(_){}
   }
   requestAnimationFrame(qrScanLoop);
-}
-
-function resetResultCard(){
-  const card = document.getElementById('resultCard');
-  card.className = 'result-card';
-  card.innerHTML = `<div style="font-size:48px">📱</div>
-    <div style="color:var(--muted);font-size:13px;line-height:1.7">
-      QRコードをカメラに向けると<br>自動で打刻されます
-    </div>`;
-  window.scrollTo({top:0, behavior:'smooth'});
 }
 
 // ══════════════════════════════
@@ -2078,7 +2071,7 @@ function processQR(empId){
   const emp=employees.find(e=>e.id===empId);
   if(!emp){
     showResultError(`未登録のQRコードです\n（ID: ${empId}）`);
-    setTimeout(()=>{ recognizing=false; resetResultCard(); }, (appSettings.resetDelay||3)*1000);
+    setTimeout(()=>{ recognizing=false; }, (appSettings.qrCooldown||6)*1000);
     return;
   }
   const type = nextType(getLastRecord(emp.id));
@@ -2104,7 +2097,16 @@ function showResult(emp,type,time){
 function showResultError(msg){
   const card=document.getElementById('resultCard');
   card.className='result-card c-err';
-  card.innerHTML=`<div style="font-size:48px">❌</div><div style="color:var(--red);font-size:14px;margin-top:8px">${msg}</div>`;
+  // XSS対策: innerHTML直接展開を避け、textContentで安全に設定
+  const icon=document.createElement('div');
+  icon.style.fontSize='48px';
+  icon.textContent='❌';
+  const text=document.createElement('div');
+  text.style.cssText='color:var(--red);font-size:14px;margin-top:8px';
+  text.textContent=msg;
+  card.innerHTML='';
+  card.appendChild(icon);
+  card.appendChild(text);
 }
 
 // ══════════════════════════════
@@ -2197,6 +2199,7 @@ async function addEmployee(){
   const dept=document.getElementById('newDept').value;
   if(!id||!name){showToast('IDと氏名を入力してください',true);return;}
   if(employees.find(e=>e.id===id)){showToast('このIDはすでに使われています',true);return;}
+  const hasFace = tempFaceDataURLs.length > 0;
   const emp={id,name,dept,faceImages:[...tempFaceDataURLs]};
   employees.push(emp);
   await saveEmployee(emp);
@@ -2205,7 +2208,7 @@ async function addEmployee(){
   document.getElementById('newName').value='';
   await buildMatcher();
   renderEmployees();
-  showToast(`${name}さんを登録しました${tempFaceDataURLs.length>0?'（写真あり）':''}`);
+  showToast(`${name}さんを登録しました${hasFace?'（写真あり）':''}`);
   playSound('empAdded');
 }
 
@@ -3113,7 +3116,7 @@ async function saveEditRecord(){
 
   // 日付をja-JP形式に変換
   const d=new Date(dateVal+'T'+timeVal);
-  const newDate=d.toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit'});
+  const newDate=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
   const newTime=d.toLocaleTimeString('ja-JP',{hour12:false});
 
   const old={...records[idx]};
@@ -3321,6 +3324,37 @@ function execExport(){
   else execCSV();
 }
 
+function buildPivotRows(filtered){
+  // 社員ID＋日付でグループ化し、打刻時刻を横に並べる
+  const map=new Map();
+  filtered.forEach(r=>{
+    if(r._absent) return; // 欠勤は別処理
+    const key=r.empId+'__'+r.date;
+    if(!map.has(key)) map.set(key,{empId:r.empId,empName:r.empName,date:r.date,times:[]});
+    map.get(key).times.push(r.time);
+  });
+  // 欠勤行も追加
+  filtered.forEach(r=>{
+    if(!r._absent) return;
+    const key=r.empId+'__'+r.date;
+    if(!map.has(key)) map.set(key,{empId:r.empId,empName:r.empName,date:r.date,times:[]});
+  });
+  // 最大打刻回数を求める
+  let maxTimes=0;
+  map.forEach(v=>{ if(v.times.length>maxTimes) maxTimes=v.times.length; });
+  if(maxTimes===0) maxTimes=1;
+  // ヘッダー作成
+  const timeHeaders=Array.from({length:maxTimes},(_,i)=>`時刻${i+1}`);
+  const headers=['社員ID','氏名','日付',...timeHeaders];
+  // 行データ作成
+  const rows=[];
+  map.forEach(v=>{
+    const timeCols=Array.from({length:maxTimes},(_,i)=>v.times[i]||'');
+    rows.push([v.empId, v.empName, v.date, ...timeCols]);
+  });
+  return {headers, rows, maxTimes};
+}
+
 function execExcel(){
   const filtered=getCSVRecords();
   if(!filtered.length){showToast('該当する打刻データがありません',true);return;}
@@ -3328,22 +3362,14 @@ function execExcel(){
   const from=document.getElementById('csvDateFrom').value;
   const to  =document.getElementById('csvDateTo').value;
 
-  // ヘッダー定義
-  const headers=['社員ID','氏名','部署','種別','認証方式','日付','時刻'];
-  const rows=filtered.map(r=>[
-    r.empId, r.empName, r.dept,
-    r._absent?'欠勤':(TYPE_LABEL[r.type]||r.type),
-    r._absent?'-':(r.method==='manual'?'手動修正':'QRコード'),
-    r.date, r._absent?'-':r.time
-  ]);
-
+  const {headers, rows, maxTimes}=buildPivotRows(filtered);
   const wsData=[headers,...rows];
   const ws=XLSX.utils.aoa_to_sheet(wsData);
 
-  // 列幅設定
-  ws['!cols']=[
-    {wch:10},{wch:14},{wch:12},{wch:8},{wch:12},{wch:14},{wch:10}
-  ];
+  // 列幅設定：社員ID・氏名・日付 ＋ 時刻列
+  const colWidths=[{wch:10},{wch:14},{wch:14}];
+  for(let i=0;i<maxTimes;i++) colWidths.push({wch:10});
+  ws['!cols']=colWidths;
 
   // ヘッダー行スタイル（背景色・太字）
   const range=XLSX.utils.decode_range(ws['!ref']);
@@ -3363,7 +3389,7 @@ function execExcel(){
   const fname=(from===to?'勤怠記録_'+from:'勤怠記録_'+from+'_'+to)+'.xlsx';
   XLSX.writeFile(wb,fname);
   closeCSVModal();
-  showToast('Excelをエクスポートしました（'+filtered.length+'件）');
+  showToast('Excelをエクスポートしました（'+rows.length+'名分）');
 }
 
 function execCSV(){
@@ -3371,17 +3397,15 @@ function execCSV(){
   if(!filtered.length){showToast('該当する打刻データがありません',true);return;}
   const from=document.getElementById('csvDateFrom').value;
   const to  =document.getElementById('csvDateTo').value;
+  const {headers, rows}=buildPivotRows(filtered);
   const BOM='\uFEFF';
-  const head='社員ID,氏名,部署,種別,認証方式,日付,時刻\n';
-  const rows=filtered.map(r=>
-    r.empId+',"'+r.empName+'",'+r.dept+','+(r._absent?'欠勤':TYPE_LABEL[r.type])+','
-    +(r._absent?'-':(r.method==='manual'?'手動修正':'QRコード'))+','+r.date+','+(r._absent?'-':r.time)
-  ).join('\n');
-  const blob=new Blob([BOM+head+rows],{type:'text/csv;charset=utf-8;'});
+  const head=headers.join(',')+'\n';
+  const body=rows.map(r=>r.map((v,i)=>(i===1?'"'+v+'"':v)).join(',')).join('\n');
+  const blob=new Blob([BOM+head+body],{type:'text/csv;charset=utf-8;'});
   const fname=(from===to?'勤怠記録_'+from:'勤怠記録_'+from+'_'+to)+'.csv';
   Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:fname}).click();
   closeCSVModal();
-  showToast('CSVをエクスポートしました（'+filtered.length+'件）');
+  showToast('CSVをエクスポートしました（'+rows.length+'名分）');
 }
 
 // ══════════════════════════════
@@ -3401,12 +3425,26 @@ const SOUND_DEFS = [
 const MULTI_SLOTS = 3; // ランダム再生スロット数
 
 let audioCtx = null;
+let masterGainNode = null;
+function getMasterGain(){
+  const ctx = getACtx();
+  if(!masterGainNode){
+    masterGainNode = ctx.createGain();
+    masterGainNode.gain.value = (appSettings.masterVolume ?? 100) / 100;
+    masterGainNode.connect(ctx.destination);
+  }
+  return masterGainNode;
+}
 function getACtx(){ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+function applyMasterVolume(vol){
+  if(masterGainNode) masterGainNode.gain.value = vol / 100;
+  appSettings.masterVolume = vol;
+}
 function playTone(notes, waveType='sine'){
   const ctx=getACtx(); let t=ctx.currentTime;
   notes.forEach(([f,d,v=0.35])=>{
     const o=ctx.createOscillator(), g=ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
+    o.connect(g); g.connect(getMasterGain());
     o.type=waveType; o.frequency.setValueAtTime(f,t);
     g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d);
     o.start(t); o.stop(t+d); t+=d*.85;
@@ -3439,7 +3477,7 @@ async function playCustomSound(key){
     const ctx = getACtx();
     const decoded = await ctx.decodeAudioData(buf.slice(0));
     const src = ctx.createBufferSource();
-    src.buffer=decoded; src.connect(ctx.destination); src.start(0);
+    src.buffer=decoded; src.connect(getMasterGain()); src.start(0);
     return true;
   }catch(e){ return false; }
 }
@@ -3459,7 +3497,7 @@ async function playSound(key){
           const ctx = getACtx();
           const decoded = await ctx.decodeAudioData(buf.slice(0));
           const src = ctx.createBufferSource();
-          src.buffer = decoded; src.connect(ctx.destination); src.start(0);
+          src.buffer = decoded; src.connect(getMasterGain()); src.start(0);
           showRareBanner(_lastStampEmpName||'');
           return;
         }
@@ -3567,7 +3605,7 @@ function previewSound(key, slot=null){
           const ctx=getACtx();
           const decoded=await ctx.decodeAudioData(buf.slice(0));
           const src=ctx.createBufferSource();
-          src.buffer=decoded; src.connect(ctx.destination); src.start(0);
+          src.buffer=decoded; src.connect(getMasterGain()); src.start(0);
         }catch(_){ def?.tone(); }
       })();
     } else { def?.tone(); }
@@ -3640,7 +3678,7 @@ function loadRareSound(slot,input){
 function previewRareSound(slot){
   const buf=customSounds['rare'][slot];
   if(!buf){showToast('音が設定されていません',true);return;}
-  (async()=>{try{const ctx=getACtx(),d=await ctx.decodeAudioData(buf.slice(0)),s=ctx.createBufferSource();s.buffer=d;s.connect(ctx.destination);s.start(0);}catch(_){}})();
+  (async()=>{try{const ctx=getACtx(),d=await ctx.decodeAudioData(buf.slice(0)),s=ctx.createBufferSource();s.buffer=d;s.connect(getMasterGain());s.start(0);}catch(_){}})();
 }
 async function clearRareSound(slot){
   customSounds['rare'][slot]=null;
@@ -3717,17 +3755,19 @@ const defaultSettings={
   autoDelete:0, recordsPerPage:50, encoding:'utf8bom',
   depts:'営業課\n資材課\n総務課\n技術開発課\n製造課',
   showDept:true, showId:true,
-  timeout:60, clockFmt:'full', resetDelay:3,
+  timeout:60,
   theme:{accent:'#00e5ff',accent2:'#0099bb'},
   adminPw:'0000',
   rareSoundProb:10,
+  masterVolume:100,
   companyName:'',
   companyLogo:'',
   logoScale:100,
   companyNameScale:100,
   timeStart:'',
   timeBreak:'',
-  timeEnd:''
+  timeEnd:'',
+  timeBannerDuration:6
 };
 let appSettings={...defaultSettings};
 
@@ -3751,15 +3791,20 @@ function applySettingsToUI(){
   document.getElementById('cfg-showDept').checked=s.showDept;
   document.getElementById('cfg-showId').checked=s.showId;
   document.getElementById('cfg-timeout').value=s.timeout;
-  document.getElementById('cfg-clockFmt').value=s.clockFmt;
-  document.getElementById('cfg-resetDelay').value=s.resetDelay;
   if(s.theme) setTheme(s.theme.accent,s.theme.accent2,true);
   const _rsp=document.getElementById('cfg-rareSoundProb');
   if(_rsp){
     _rsp.value=s.rareSoundProb??10;
     document.getElementById('cfg-rareSoundProbVal').textContent=(+(s.rareSoundProb??10))===0?'無効':(s.rareSoundProb??10)+'%';
   }
+  const _mv=document.getElementById('cfg-masterVolume');
+  if(_mv){
+    _mv.value=s.masterVolume??100;
+    document.getElementById('cfg-masterVolumeVal').textContent=(s.masterVolume??100)+'%';
+  }
   renderRareSoundSlots();
+  const _tbd=document.getElementById('cfg-timeBannerDuration');
+  if(_tbd) _tbd.value=s.timeBannerDuration??6;
   ['timeStart','timeBreak','timeEnd'].forEach(k=>{
     const el=document.getElementById('cfg-'+k);
     if(el) el.value=appSettings[k]||'';
@@ -3785,6 +3830,8 @@ function applySettingsToUI(){
 
 function applySettingsToApp(){
   const s=appSettings;
+  // マスターボリュームをGainNodeに反映
+  if(masterGainNode) masterGainNode.gain.value = (s.masterVolume??100) / 100;
   // 部署プルダウン反映
   applyDeptsToSelect(s.depts);
   // タイムアウト
@@ -3800,7 +3847,10 @@ async function runAutoDelete(){
   if(!days) return;
   const cutoff=new Date();
   cutoff.setDate(cutoff.getDate()-days);
-  const cutoffStr=cutoff.toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit'});
+  const cy=cutoff.getFullYear();
+  const cm=String(cutoff.getMonth()+1).padStart(2,'0');
+  const cd=String(cutoff.getDate()).padStart(2,'0');
+  const cutoffStr=`${cy}/${cm}/${cd}`;
   const toDelete=records.filter(r=>r.date<cutoffStr);
   if(!toDelete.length) return;
   for(const r of toDelete) await deleteRecordDB(r.id);
@@ -3819,9 +3869,9 @@ function saveSettings(){
   s.showDept=document.getElementById('cfg-showDept').checked;
   s.showId=document.getElementById('cfg-showId').checked;
   s.timeout=parseInt(document.getElementById('cfg-timeout').value)||0;
-  s.clockFmt=document.getElementById('cfg-clockFmt').value;
-  s.resetDelay=parseInt(document.getElementById('cfg-resetDelay').value)||3;
   s.rareSoundProb=+(document.getElementById('cfg-rareSoundProb')?.value??10);
+  s.masterVolume=+(document.getElementById('cfg-masterVolume')?.value??100);
+  s.timeBannerDuration=+(document.getElementById('cfg-timeBannerDuration')?.value??6);
   s.timeStart = document.getElementById('cfg-timeStart')?.value||'';
   s.timeBreak = document.getElementById('cfg-timeBreak')?.value||'';
   s.timeEnd   = document.getElementById('cfg-timeEnd')?.value||'';
@@ -4010,7 +4060,7 @@ function showTimeBanner(ev){
   b.classList.add('show');
   playSound('in');
   clearTimeout(_timeBannerTimer);
-  _timeBannerTimer=setTimeout(()=>b.classList.remove('show'), 6000);
+  _timeBannerTimer=setTimeout(()=>b.classList.remove('show'), (appSettings.timeBannerDuration??6)*1000);
   // 画面フラッシュ演出
   triggerTimeFlash(ev);
 }
