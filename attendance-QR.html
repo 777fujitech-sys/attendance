@@ -1672,7 +1672,8 @@ let qrScanActive   = false;
 
 let tempFaceDataURLs = [];
 let captureStream    = null;
-const recentScans    = {};
+// key=empId, value={until: クールダウン終了時刻ms, warned: 最後にエラー表示した時刻ms}
+const scanBlock = {};
 
 // ══════════════════════════════
 // IndexedDB
@@ -2006,9 +2007,21 @@ function qrScanLoop(){
         const empId = code.data.trim().toUpperCase();
         const now   = Date.now();
         // 同一人物のみクールダウン。別の人は即時打刻可能。
-        if(!recentScans[empId] || now-recentScans[empId] > getQRCooldown()){
-          recentScans[empId] = now;
+        const block = scanBlock[empId];
+        if(!block || now >= block.until){
+          // ブロックなし or 期限切れ → 打刻。クールダウン終了時刻をセット。
+          scanBlock[empId] = { until: now + getQRCooldown(), warned: now };
           processQR(empId);
+        } else {
+          // ブロック中 → 1秒に1回エラー表示
+          if(now - block.warned >= 1000){
+            block.warned = now;
+            const emp = employees.find(e=>e.id===empId);
+            const remain = Math.ceil((block.until - now) / 1000);
+            const name = emp ? emp.name+'さんは' : '';
+            showToast(`${name}あと${remain}秒後に打刻できます`, true);
+            playSound('duplicate');
+          }
         }
       }
     }catch(_){}
@@ -2036,15 +2049,7 @@ async function processAttendance(empId, type){
   const emp=employees.find(e=>e.id===empId);
   if(!emp) return;
 
-  // クールダウン（同一人物の連続打刻防止）
-  const now=Date.now();
-  if(recentScans[empId]&&now-recentScans[empId]<getQRCooldown()){
-    const remain=Math.ceil((getQRCooldown()-(now-recentScans[empId]))/1000);
-    showToast(`${emp.name}さんはあと${remain}秒後に打刻できます`,true);
-    playSound('duplicate');
-    return;
-  }
-  recentScans[empId]=now;
+  // クールダウンはqrScanLoop側で管理（processQR呼び出し前にセット済み）
 
   try{
     window._lastStampEmpName = emp.name;
@@ -3252,7 +3257,7 @@ async function execReset(){
   for(const r of toDelete) await deleteRecordDB(r.id);
   const ids=new Set(toDelete.map(r=>r.id));
   records=records.filter(r=>!ids.has(r.id));
-  Object.keys(recentScans).forEach(k=>delete recentScans[k]);
+  Object.keys(scanBlock).forEach(k=>delete scanBlock[k]);
   updateLog(); updateStats(); renderRecords(); renderPresentPanel();
   closeResetModal();
   showToast(toDelete.length+'件の打刻データを削除しました');
