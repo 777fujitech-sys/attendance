@@ -1669,7 +1669,7 @@ let employees  = [];
 let records    = [];
 let qrStream   = null;
 let qrScanActive   = false;
-let recognizing    = false;
+
 let tempFaceDataURLs = [];
 let captureStream    = null;
 const recentScans    = {};
@@ -2005,14 +2005,10 @@ function qrScanLoop(){
       if(code && code.data){
         const empId = code.data.trim().toUpperCase();
         const now   = Date.now();
-        // 同一人物のクールダウンチェック（processAttendanceと同じキーで判定）
+        // 同一人物のみクールダウン。別の人は即時打刻可能。
         if(!recentScans[empId] || now-recentScans[empId] > getQRCooldown()){
-          if(!recognizing){
-            recognizing = true;
-            processQR(empId);
-            // 3秒後にスキャン再開
-            setTimeout(()=>{ recognizing = false; }, (appSettings.qrCooldown||6)*1000);
-          }
+          recentScans[empId] = now;
+          processQR(empId);
         }
       }
     }catch(_){}
@@ -2046,7 +2042,6 @@ async function processAttendance(empId, type){
     const remain=Math.ceil((getQRCooldown()-(now-recentScans[empId]))/1000);
     showToast(`${emp.name}さんはあと${remain}秒後に打刻できます`,true);
     playSound('duplicate');
-    recognizing=false;
     return;
   }
   recentScans[empId]=now;
@@ -2076,11 +2071,28 @@ function processQR(empId){
   const emp=employees.find(e=>e.id===empId);
   if(!emp){
     showResultError(`未登録のQRコードです\n（ID: ${empId}）`);
-    setTimeout(()=>{ recognizing=false; }, (appSettings.qrCooldown||6)*1000);
     return;
   }
   const type = nextType(getLastRecord(emp.id));
   processAttendance(emp.id, type);
+}
+
+// 打刻結果カードを待機状態に戻す
+let _resultResetTimer = null;
+function resetResultCard(){
+  const card = document.getElementById('resultCard');
+  card.className = 'result-card';
+  card.innerHTML = `
+    <div style="font-size:48px">📱</div>
+    <div style="color:var(--muted);font-size:13px;line-height:1.7">
+      QRコードをカメラに向けると<br>自動で打刻されます
+    </div>
+  `;
+}
+function scheduleResultReset(){
+  clearTimeout(_resultResetTimer);
+  const sec = appSettings.qrCooldown || 6;
+  _resultResetTimer = setTimeout(resetResultCard, sec * 1000);
 }
 
 function showResult(emp,type,time){
@@ -2097,6 +2109,7 @@ function showResult(emp,type,time){
     <div class="result-method method-qr">📱 QRコード</div>
   `;
   showToast(`${emp.name}さんの${TYPE_LABEL[type]}を記録しました`);
+  scheduleResultReset();
 }
 
 function showResultError(msg){
@@ -2112,6 +2125,7 @@ function showResultError(msg){
   card.innerHTML='';
   card.appendChild(icon);
   card.appendChild(text);
+  scheduleResultReset();
 }
 
 // ══════════════════════════════
