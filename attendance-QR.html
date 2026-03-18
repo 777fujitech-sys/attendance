@@ -1922,9 +1922,9 @@ function loadImage(src){
 // QRカメラ（高速化版）
 // ══════════════════════════════
 
-// jsQR に渡すcanvasは小さく固定（400×300）→ 処理コスト 1/4 以下
-const QR_SCAN_W = 400;
-const QR_SCAN_H = 300;
+// jsQR に渡すcanvasをカメラ実解像度に合わせる（640×480）→ 読み取り精度向上
+const QR_SCAN_W = 640;
+const QR_SCAN_H = 480;
 
 let _qrVideoReady = false;
 
@@ -1941,7 +1941,7 @@ async function startQRCamera(){
     return;
   }
 
-  // ③ カメラ解像度を落とす: 640×480 で十分（QR読み取り精度に影響しない）
+  // カメラ解像度: 640×480（jsQR解析canvasと揃える）
   const constraints = [
     {video:{facingMode:{ideal:'user'}, width:{ideal:640}, height:{ideal:480}}},
     {video:{facingMode:'user'}},
@@ -1993,7 +1993,12 @@ function qrScanLoop(){
   if(!qrScanActive) return;
   const video = document.getElementById('qrVideo');
   if(video.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA && video.videoWidth > 0){
+    // 表示と同じ左右反転をcanvasにも適用（フレーム位置とスキャン画像を一致させる）
+    _qrScanCtx.save();
+    _qrScanCtx.translate(QR_SCAN_W, 0);
+    _qrScanCtx.scale(-1, 1);
     _qrScanCtx.drawImage(video, 0, 0, QR_SCAN_W, QR_SCAN_H);
+    _qrScanCtx.restore();
     try{
       const img  = _qrScanCtx.getImageData(0, 0, QR_SCAN_W, QR_SCAN_H);
       const code = window.jsQR && jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
