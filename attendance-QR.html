@@ -2010,7 +2010,7 @@ function qrScanLoop(){
         const block = scanBlock[empId];
         if(!block || now >= block.until){
           // ブロックなし or 期限切れ → 打刻。クールダウン終了時刻をセット。
-          scanBlock[empId] = { until: now + getQRCooldown(), warned: now };
+          scanBlock[empId] = { until: now + getQRCooldown(), warned: now + 5000 }; // 打刻後5秒間はエラー抑制
           processQR(empId);
         } else {
           // ブロック中 → 1秒に1回エラー表示
