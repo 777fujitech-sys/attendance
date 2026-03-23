@@ -1157,9 +1157,15 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
         <span class="settings-label-main">始業時間</span>
         <span class="settings-label-sub">設定した時刻に画面で時報を表示します。空欄で無効。</span>
       </div>
-      <div class="settings-control" style="gap:6px;">
+      <div class="settings-control" style="gap:6px;flex-wrap:wrap;">
         <input type="time" id="cfg-timeStart" class="settings-input" value="" style="width:110px;"/>
         <span style="font-size:11px;color:var(--muted);">🔔 始業</span>
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:11px;padding:5px 10px;" title="楽曲ファイルを選択">
+          🎵 楽曲<input type="file" accept="audio/*" style="display:none" onchange="loadSoundFile('chimeStart',0,this)">
+        </label>
+        <button class="btn btn-sm" onclick="previewSound('chimeStart')" style="background:rgba(0,229,255,.12);border:1px solid var(--accent2);color:var(--accent2);font-size:11px;padding:5px 9px;">▶</button>
+        <button class="btn btn-sm" onclick="clearSound('chimeStart',0)" style="background:rgba(255,51,85,.1);border:1px solid var(--red);color:var(--red);font-size:11px;padding:5px 9px;">✕</button>
+        <span id="snd-status-chimeStart" style="font-size:10px;color:var(--muted);">デフォルト</span>
       </div>
     </div>
 
@@ -1168,9 +1174,15 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
         <span class="settings-label-main">休憩開始時間</span>
         <span class="settings-label-sub">設定した時刻に画面で時報を表示します。空欄で無効。</span>
       </div>
-      <div class="settings-control" style="gap:6px;">
+      <div class="settings-control" style="gap:6px;flex-wrap:wrap;">
         <input type="time" id="cfg-timeBreak" class="settings-input" value="" style="width:110px;"/>
         <span style="font-size:11px;color:var(--muted);">☕ 休憩</span>
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:11px;padding:5px 10px;" title="楽曲ファイルを選択">
+          🎵 楽曲<input type="file" accept="audio/*" style="display:none" onchange="loadSoundFile('chimeBreak',0,this)">
+        </label>
+        <button class="btn btn-sm" onclick="previewSound('chimeBreak')" style="background:rgba(0,229,255,.12);border:1px solid var(--accent2);color:var(--accent2);font-size:11px;padding:5px 9px;">▶</button>
+        <button class="btn btn-sm" onclick="clearSound('chimeBreak',0)" style="background:rgba(255,51,85,.1);border:1px solid var(--red);color:var(--red);font-size:11px;padding:5px 9px;">✕</button>
+        <span id="snd-status-chimeBreak" style="font-size:10px;color:var(--muted);">デフォルト</span>
       </div>
     </div>
 
@@ -1179,9 +1191,15 @@ td.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
         <span class="settings-label-main">退勤時間</span>
         <span class="settings-label-sub">設定した時刻に画面で時報を表示します。空欄で無効。</span>
       </div>
-      <div class="settings-control" style="gap:6px;">
+      <div class="settings-control" style="gap:6px;flex-wrap:wrap;">
         <input type="time" id="cfg-timeEnd" class="settings-input" value="" style="width:110px;"/>
         <span style="font-size:11px;color:var(--muted);">🏁 退勤</span>
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:11px;padding:5px 10px;" title="楽曲ファイルを選択">
+          🎵 楽曲<input type="file" accept="audio/*" style="display:none" onchange="loadSoundFile('chimeEnd',0,this)">
+        </label>
+        <button class="btn btn-sm" onclick="previewSound('chimeEnd')" style="background:rgba(0,229,255,.12);border:1px solid var(--accent2);color:var(--accent2);font-size:11px;padding:5px 9px;">▶</button>
+        <button class="btn btn-sm" onclick="clearSound('chimeEnd',0)" style="background:rgba(255,51,85,.1);border:1px solid var(--red);color:var(--red);font-size:11px;padding:5px 9px;">✕</button>
+        <span id="snd-status-chimeEnd" style="font-size:10px;color:var(--muted);">デフォルト</span>
       </div>
     </div>
 
@@ -3363,6 +3381,8 @@ function buildPivotRows(filtered){
     const key=r.empId+'__'+r.date;
     if(!map.has(key)) map.set(key,{empId:r.empId,empName:r.empName,date:r.date,times:[]});
   });
+  // 時刻を昇順ソート（早い時刻が時刻1になるように）
+  map.forEach(v=>{ v.times.sort((a,b)=>a.localeCompare(b)); });
   // 最大打刻回数を求める
   let maxTimes=0;
   map.forEach(v=>{ if(v.times.length>maxTimes) maxTimes=v.times.length; });
@@ -3445,8 +3465,11 @@ const SOUND_DEFS = [
   { key:'duplicate', icon:'⚠️', label:'重複打刻',       when:'連続・すでに出退勤済み',           multi:false, tone:()=>playTone([[440,.08],[440,.08],[440,.18]],'triangle') },
   { key:'empAdded',  icon:'👤', label:'社員登録完了',   when:'社員を追加したとき',               multi:false, tone:()=>playTone([[660,.08],[880,.08],[1100,.08],[1320,.18]],'sine') },
   { key:'recordOp',  icon:'📝', label:'打刻修正・削除', when:'記録の修正・削除が完了したとき',   multi:false, tone:()=>playTone([[550,.10],[660,.18]],'sine') },
+  { key:'chimeStart',icon:'☀️', label:'始業時報',       when:'始業時間の時報',                   multi:false, tone:()=>playTone([[660,.12],[880,.18],[1100,.22],[1320,.28]],'sine') },
+  { key:'chimeBreak',icon:'☕', label:'休憩時報',       when:'休憩開始時間の時報',               multi:false, tone:()=>playTone([[880,.15],[660,.15],[550,.25]],'sine') },
+  { key:'chimeEnd',  icon:'🏁', label:'退勤時報',       when:'退勤時間の時報',                   multi:false, tone:()=>playTone([[880,.12],[660,.12],[440,.30,.32]],'sine') },
 ];
-const MULTI_SLOTS = 3; // ランダム再生スロット数
+const MULTI_SLOTS = 6; // ランダム再生スロット数
 
 let audioCtx = null;
 let masterGainNode = null;
@@ -3827,6 +3850,7 @@ function applySettingsToUI(){
     document.getElementById('cfg-masterVolumeVal').textContent=(s.masterVolume??100)+'%';
   }
   renderRareSoundSlots();
+  ['chimeStart','chimeBreak','chimeEnd'].forEach(k=>updateSoundStatus(k));
   const _tbd=document.getElementById('cfg-timeBannerDuration');
   if(_tbd) _tbd.value=s.timeBannerDuration??6;
   ['timeStart','timeBreak','timeEnd'].forEach(k=>{
@@ -4045,9 +4069,9 @@ function renderPresentPanel(){
 // 時報システム
 // ══════════════════════════════
 const TIME_EVENTS=[
-  {key:'timeStart', icon:'☀️', title:'始業時間です',    sub:'おはようございます！本日もよろしくお願いします。', accent:'var(--accent)'},
-  {key:'timeBreak', icon:'☕', title:'休憩時間です',    sub:'お疲れ様です。ゆっくり休憩してください。',        accent:'#f59e0b'},
-  {key:'timeEnd',   icon:'🏁', title:'退勤時間になりました', sub:'本日もお疲れ様でした！',                    accent:'#10b981'},
+  {key:'timeStart', chimeKey:'chimeStart', icon:'☀️', title:'始業時間です',    sub:'おはようございます！本日もよろしくお願いします。', accent:'var(--accent)'},
+  {key:'timeBreak', chimeKey:'chimeBreak', icon:'☕', title:'休憩時間です',    sub:'お疲れ様です。ゆっくり休憩してください。',        accent:'#f59e0b'},
+  {key:'timeEnd',   chimeKey:'chimeEnd',   icon:'🏁', title:'退勤時間になりました', sub:'本日もお疲れ様でした！',                    accent:'#10b981'},
 ];
 let _timeFiredToday={}; // key→'YYYY-MM-DD' で当日済みフラグ
 let _timeBannerTimer=null;
@@ -4082,7 +4106,7 @@ function showTimeBanner(ev){
   b.style.borderBottomColor=ev.accent;
   b.style.boxShadow=`0 4px 40px rgba(0,229,255,.25)`;
   b.classList.add('show');
-  playSound('in');
+  playSound(ev.chimeKey || 'in');
   clearTimeout(_timeBannerTimer);
   _timeBannerTimer=setTimeout(()=>b.classList.remove('show'), (appSettings.timeBannerDuration??6)*1000);
   // 画面フラッシュ演出
