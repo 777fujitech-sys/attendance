@@ -1911,7 +1911,7 @@ function tick(){
   const yyyy=n.getFullYear();
   const mm=String(n.getMonth()+1).padStart(2,'0');
   const dd=String(n.getDate()).padStart(2,'0');
-  const time=n.toLocaleTimeString('ja-JP',{hour12:false});
+  const time=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');
   document.getElementById('clock').textContent=
     `${yyyy}年${mm}月${dd}日(${weekday})　${time}`;
 }
@@ -2076,7 +2076,7 @@ async function processAttendance(empId, type){
       type,method:'qr',
       confidence:null,
       date:todayStr(),
-      time:new Date().toLocaleTimeString('ja-JP',{hour12:false}),
+      time:(()=>{const _t=new Date();return String(_t.getHours()).padStart(2,'0')+':'+String(_t.getMinutes()).padStart(2,'0')+':'+String(_t.getSeconds()).padStart(2,'0');})(),
       timestamp:new Date().toISOString(),
     };
     records.unshift(record);
@@ -3159,7 +3159,7 @@ async function saveEditRecord(){
   // 日付をja-JP形式に変換
   const d=new Date(dateVal+'T'+timeVal);
   const newDate=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-  const newTime=d.toLocaleTimeString('ja-JP',{hour12:false});
+  const newTime=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
 
   const old={...records[idx]};
   const newType=document.getElementById('editType').value;
