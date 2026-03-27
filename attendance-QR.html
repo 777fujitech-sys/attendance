@@ -2055,7 +2055,7 @@ function getLastRecord(empId){
   return records.find(r=>r.empId===empId&&r.date===today)||null;
 }
 function hasTypeOnDate(empId,type,dateStr,excludeId=null){
-  return records.some(r=>r.empId===empId&&r.type===type&&r.date===dateStr&&(excludeId===null||r.id!==excludeId));
+  return records.some(r=>r.empId===empId&&r.type===type&&r.date===dateStr&&(excludeId===null||Number(r.id)!==Number(excludeId)));
 }
 function nextType(last){
   // 出勤中（in）なら退勤、それ以外（未打刻・退勤済）なら出勤
@@ -3149,7 +3149,7 @@ function verifyEditPw(){
 async function saveEditRecord(){
   if(!editPwVerified){showToast('パスワード認証が必要です',true);return;}
   const id=Number(document.getElementById('editRecordId').value);
-  const idx=records.findIndex(r=>r.id===id);
+  const idx=records.findIndex(r=>Number(r.id)===id);
   if(idx===-1){showToast('記録が見つかりません',true);return;}
 
   const dateVal=document.getElementById('editDate').value; // yyyy-mm-dd
@@ -3164,15 +3164,6 @@ async function saveEditRecord(){
   const old={...records[idx]};
   const newType=document.getElementById('editType').value;
 
-  // 1日1回制限チェック（自分自身の記録は除外して判定）
-  if(newType==='in' && hasTypeOnDate(old.empId,'in',newDate,old.id)){
-    showToast(`${old.empName}さんは${newDate}にすでに出勤が記録されています\n手動修正できません`,true);
-    return;
-  }
-  if(newType==='out' && hasTypeOnDate(old.empId,'out',newDate,old.id)){
-    showToast(`${old.empName}さんは${newDate}にすでに退勤が記録されています\n手動修正できません`,true);
-    return;
-  }
 
   records[idx]={
     ...records[idx],
