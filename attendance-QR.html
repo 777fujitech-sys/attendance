@@ -3364,7 +3364,7 @@ function buildPivotRows(filtered){
     if(r._absent) return; // 欠勤は別処理
     const key=r.empId+'__'+r.date;
     if(!map.has(key)) map.set(key,{empId:r.empId,empName:r.empName,date:r.date,times:[]});
-    map.get(key).times.push(r.time);
+    map.get(key).times.push((r.time||'').slice(0,5));
   });
   // 欠勤行も追加
   filtered.forEach(r=>{
